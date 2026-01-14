@@ -158,7 +158,7 @@ tasks.jar {
     archiveBaseName = "${rootProject.name}-bukkit"
     destinationDirectory = rootProject.layout.buildDirectory.dir("libs")
     manifest {
-        attributes["paperweight-mappings-namespace"] = "spigot"
+        attributes["paperweight-mappings-namespace"] = "mojang"
     }
 }
 
