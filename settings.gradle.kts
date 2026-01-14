@@ -17,18 +17,8 @@ gradle.startParameter.isParallelProjectExecutionEnabled = true
 include(
     "api:standard-api",
     "api:bukkit-api",
-    "api:velocity-api",
-    "api:fabric-api",
 
     "dist",
-    "nms:v1_20_R3",
-    "nms:v1_20_R4",
-    "nms:v1_21_R1",
-    "nms:v1_21_R2",
-    "nms:v1_21_R3",
-    "nms:v1_21_R4",
-    "nms:v1_21_R5",
-    "nms:v1_21_R6",
     "nms:v1_21_R7",
 
     "scheduler:standard",
@@ -37,7 +27,5 @@ include(
     "bedrock:geyser",
     "bedrock:floodgate",
 
-    "bootstrap:bukkit",
-    "bootstrap:velocity",
-    "bootstrap:fabric"
+    "bootstrap:bukkit"
 )

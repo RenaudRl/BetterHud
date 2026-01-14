@@ -1,127 +1,70 @@
-<div align="center">  
+# BetterHud
 
-![-0001-export](https://github.com/toxicity188/BetterHud/assets/114675706/ccbf4bd3-9133-44ee-b277-985eae4349ae)
+![Java Version](https://img.shields.io/badge/Java-21-orange)
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Target](https://img.shields.io/badge/Target-Folia%20/%20Paper%20/%20BTC--CORE-blue)
 
-Welcome to BetterHud!
+**BetterHud** is a high-performance, strictly optimized fork of **toxicity188's BetterHud**, engineered specifically for the **BTC Studio** infrastructure. This fork drops support for legacy platforms (Spigot, Bukkit, older NMS) to provide native, blazingly fast integration with **Paper** and **Folia**.
 
-[SpigotMC](https://www.spigotmc.org/resources/115559/) | [Hangar](https://hangar.papermc.io/toxicity188/BetterHud) | [Modrinth](https://modrinth.com/plugin/betterhud2) | [Github](https://github.com/toxicity188/BetterHud)
+> [!WARNING]
+> **PLATFORM COMPATIBILITY NOTICE**
+> This fork is **STRICTLY** for Paper 1.21.11+ and Folia 1.21.11+. Legacy compatibility layers have been removed to maximize performance. If you are not running modern Paper/Folia, this plugin **will not function**.
 
-[![GitHub Release](https://img.shields.io/github/v/release/toxicity188/BetterHud?display_name=release&style=for-the-badge&logo=kotlin)](https://github.com/toxicity188/BetterHud/releases/latest)
-[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/rePyFESDbk)
-[![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/toxicity188/BetterHud?style=for-the-badge&logo=github)](https://github.com/toxicity188/BetterHud/issues)
-[![Static Badge](https://img.shields.io/badge/WIKI-blue?style=for-the-badge)](https://github.com/toxicity188/BetterHud/wiki)
-[![CodeFactor](https://www.codefactor.io/repository/github/toxicity188/betterhud/badge/master?style=for-the-badge)](https://www.codefactor.io/repository/github/toxicity188/betterhud/overview/master)
+---
 
-</div>
+## 🚀 Key Features in Detail
 
-### Multiplatform server-side HUD implementation of Minecraft
-This project implements a server-side HUD.
+### ⚡ Concurrency & Threading (Folia Native)
+- **Native Folia Support**: Deeply integrated `PaperScheduler` ensures that all tasks (Global & Region-synced) are handled correctly using the region scheduler.
+- **Zero-Overhead Logic**: Slashed unnecessary logic checks for non-Folia/non-Paper platforms, resulting in faster tick-to-task execution.
 
-- Supports auto-generating resource pack.
-- Supports display image(include png sequence), text, head.
-- Supports animation.
+### 🛠️ Core Optimisations & Debloating
+- **Java 21 Native**: Leveraging the latest JVM optimizations for maximum throughput and memory efficiency.
+- **Legacy Cleanup**: Removed support for legacy NMS versions (1.17 - 1.21.10), Spigot-specific compatibility, and other platforms (Fabric/Velocity).
+- **BTC Core Integration**: Native detection of BTC Core platform to enable specialized optimizations.
 
-### Platform
-- Bukkit(with Folia) 1.20.4–1.21.11
-- Velocity 3.3-3.4
-- Fabric server 1.21.11
+### 🌍 Deployment & Startup
+- **Steamlined Loading**: Faster startup times through reduced library dependencies and compatibility checks.
+- **Plug & Play**: Automatic threading context detection for both Paper and Folia environments.
 
-### Library
-- [kotlin stdlib](https://github.com/JetBrains/kotlin): Implements better functional programming.
-- [adventure](https://github.com/KyoriPowered/adventure): Implements multi-platform component.
-- [bstats](https://bstats.org/getting-started/include-metrics): Implements metrics.
-- [exp4j](https://github.com/fasseg/exp4j): Implements equation.
-- [snakeyaml](https://github.com/snakeyaml/snakeyaml): Implements yaml parser.
-- [gson](https://github.com/google/gson): Implements json parser/writer.
-- [better command](https://github.com/toxicity188/BetterCommand): Implements multi-platform supporting command.
-- [expiring map](https://github.com/jhalterman/expiringmap): Implements cache map.
-- [HikariCP](https://github.com/brettwooldridge/HikariCP): Implements comfortable DB handling.
-- [mysql-connector-j](https://github.com/mysql/mysql-connector-j): Implements MySQL connector.
-- [semver4j](https://github.com/semver4j/semver4j): Implements semver parser and comparator. 
+---
 
+## ⚙️ Configuration
 
-### Dependency
-- Bukkit: No
-- Velocity: No
-- Fabric server: [Fabric API](https://modrinth.com/mod/fabric-api)
+BetterHud is optimized out-of-the-box, but stays configurable via `config.yml`.
 
-### Build
-Requires Java 21 Eclipse Adoptium.
+### Key Settings
+| Key | Default | Description |
+|-----|---------|-------------|
+| `metrics` | `true` | Enables/Disables bStats metrics. |
+| `debug` | `false` | Enables debug mode for development. |
+| `tick-speed` | `1` | Global tick speed for HUD updates. |
+| `pack-type` | `zip` | Resource pack generation type (folder/zip/none). |
+| `enable-self-host` | `false` | Enables built-in HTTP server for resource packs. |
+| `disable-to-bedrock-player` | `true` | Disables HUD for Bedrock/Geyser players. |
 
-- Build all available jar: ./gradlew build  
-- Build Bukkit plugin: ./gradlew pluginJar
-- Build Velocity plugin: ./gradlew velocityJar
-- Build Fabric server side mod: ./gradlew fabricJar  
-- Build source code jar: ./gradlew sourcesJar  
-- Build dokka-based docs jar: ./gradlew javadocJar
+---
 
-### API
-Get from maven central
+## 🛠 Building & Deployment
 
-![Maven Central Version](https://img.shields.io/maven-central/v/io.github.toxicity188/BetterHud-standard-api?style=for-the-badge) (BetterHud)  
-![Maven Central Version](https://img.shields.io/maven-central/v/io.github.toxicity188/BetterCommand?style=for-the-badge) (BetterCommand)
+Requires **Java 21**.
 
-[Bukkit example plugin](https://github.com/toxicity188/BetterHud-MMOCore)  
-![Maven Central Version](https://img.shields.io/maven-central/v/io.github.toxicity188/BetterHud-bukkit-api) (BetterHud for Bukkit)
-``` kotlin
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    compileOnly("io.github.toxicity188:BetterHud-standard-api:VERSION") //Standard api
-    compileOnly("io.github.toxicity188:BetterHud-bukkit-api:VERSION") //Platform api
-    compileOnly("io.github.toxicity188:BetterCommand:VERSION") //BetterCommand library
-}
+```bash
+# Clean and compile the project
+./gradlew clean build
 ```
 
-[Fabric example mod](https://github.com/toxicity188/betterhud-fabric-example)  
-![Maven Central Version](https://img.shields.io/maven-central/v/io.github.toxicity188/BetterHud-fabric-api) (BetterHud for Fabric)
-``` kotlin
-repositories {
-    mavenCentral()
-}
+---
 
-dependencies {
-    compileOnly("io.github.toxicity188:BetterHud-standard-api:VERSION") //Standard api
-    modCompileOnly("io.github.toxicity188:BetterHud-fabric-api:VERSION") //Platform api
-    compileOnly("io.github.toxicity188:BetterCommand:VERSION") //BetterCommand library
-}
-```
+## 🤝 Credits & Inspiration
+This project is built upon the innovation of the broader Minecraft development community:
+- **[BetterHud](https://github.com/toxicity188/BetterHud)** - The original project by toxicity188.
 
-Get from Jitpack  
-[![](https://jitpack.io/v/toxicity188/BetterHud.svg)](https://jitpack.io/#toxicity188/BetterHud)
-``` kotlin
-repositories {
-    mavenCentral()
-    maven("https://jitpack.io")
-}
+---
 
-dependencies {
-    compileOnly("net.kyori:adventure-api:VERSION") //Adventure api
-    compileOnly("com.github.toxicity188:BetterHud:VERSION") //BetterHud
-    compileOnly("com.github.toxicity188:BetterCommand:VERSION") //BetterCommand library
-}
-```
+## 📜 License
+- **Custom BTC-CORE Patches**: Proprietary to **BTC Studio**.
+- **Upstream Source**: Original licenses apply to their respective components from BetterHud (MIT).
 
-### Use BetterHud with Skript
-[Go to download Skript](https://github.com/SkriptLang/Skript/releases)
-```
-command /pointadd:
-    trigger:
-        #compass marker add
-        point add location at 0, 0, 0 in world "world" named "test1" to player
-        point add location at 10, 0, 0 in world "world" named "test2" with icon "other" to player
-
-command /pointremove:
-    trigger:
-        #compass marker remove
-        point remove "test1" to player
-        point remove "test2" to player
-
-command /popup:
-    trigger:
-        #show popup with custom event
-        set {_o::rand} to random integer between 1 to 100
-        show popup "test_popup" to player with variable of {_o::*}
-```
+---
+**Fork maintained by BTCSTUDIO**

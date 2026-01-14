@@ -7,7 +7,7 @@ plugins {
     id("io.papermc.hangar-publish-plugin") version "0.1.4"
 }
 
-val minecraft = property("minecraft_version")!!.toString()
+val minecraft = "1.21.11"
 
 dependencies {
     fun searchAll(target: Project) {
@@ -43,25 +43,15 @@ runPaper {
 }
 
 val bukkit = project("bootstrap:bukkit")
-val fabric = project("bootstrap:fabric")
-val velocity = project("bootstrap:velocity")
 
 tasks.register("pluginJar") {
     dependsOn(bukkit.tasks.build)
-}
-tasks.register("fabricJar") {
-    dependsOn(fabric.tasks.build)
-}
-tasks.register("velocityJar") {
-    dependsOn(velocity.tasks.build)
 }
 
 tasks.register("modrinthPublish") {
     finalizedBy(
         tasks.modrinthSyncBody,
-        bukkit.tasks.modrinth,
-        fabric.tasks.modrinth,
-        velocity.tasks.modrinth
+        bukkit.tasks.modrinth
     )
 }
 
@@ -81,9 +71,7 @@ tasks {
     }
     build {
         dependsOn(
-            bukkit.tasks.build,
-            fabric.tasks.build,
-            velocity.tasks.build
+            bukkit.tasks.build
         )
         finalizedBy(
             sourcesJar,
@@ -108,11 +96,7 @@ hangarPublish {
         platforms {
             register(Platforms.PAPER) {
                 jar = file("build/libs/${project.name}-bukkit-${project.version}.jar")
-                platformVersions = SUPPORTED_MINECRAFT_VERSION
-            }
-            register(Platforms.VELOCITY) {
-                jar = file("build/libs/${project.name}-velocity-${project.version}.jar")
-                platformVersions = listOf("3.3", "3.4")
+                platformVersions = listOf(minecraft)
             }
         }
     }

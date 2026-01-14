@@ -44,3 +44,32 @@ bin/
 ### Minecraft ###
 /run
 /plugins
+Docs/advancedslimepaper api.txt
+Docs/betterhud api.txt
+Docs/bettermodel api.txt
+Docs/bluemap api.txt
+Docs/btccore-api.txt
+Docs/craftengine api.txt
+Docs/customnameplate.txt
+Docs/dart docs.txt
+Docs/flutter.txt
+Docs/folia api.txt
+Docs/itemsadder api.txt
+Docs/luckperm api.txt
+Docs/mccorroutine.txt
+Docs/mmocore api.txt
+Docs/mmoitems api.txt
+Docs/mysql doc.txt
+Docs/mythichud api.txt
+Docs/mythiclib api.txt
+Docs/mythicmobs api.txt
+Docs/netty socket io.txt
+Docs/nexo api.txt
+Docs/packetevent.txt
+Docs/paper api 1.21.11.txt
+Docs/placeholderapi api.txt
+Docs/postgresql doc.txt
+Docs/redis doc.txt
+Docs/riverpod doc.txt
+Docs/socket io client.txt
+Docs/velocity api.txt

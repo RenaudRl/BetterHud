@@ -68,6 +68,11 @@ class BukkitBootstrapImpl : BukkitBootstrap, JavaPlugin() {
         Class.forName("io.papermc.paper.configuration.PaperConfigurations")
         true
     }.getOrDefault(false)
+    // BTC Core detection via class or brand
+    private val isBTCCore = runCatching {
+        Class.forName("com.infernalsuite.asp.config.BTCCoreConfig")
+        true
+    }.getOrDefault(false)
 
     private val scheduler = if (isFolia) PaperScheduler(this) else BukkitScheduler(this)
     private val updateTask = ArrayList<PlaceholderTask>()
@@ -183,22 +188,21 @@ class BukkitBootstrapImpl : BukkitBootstrap, JavaPlugin() {
 
     override fun onLoad() {
         val pluginManager = Bukkit.getPluginManager()
-        nms = when (minecraftVersion) {
-            MinecraftVersion.V1_21_11 -> kr.toxicity.hud.nms.v1_21_R7.NMSImpl()
-            MinecraftVersion.V1_21_9, MinecraftVersion.V1_21_10 -> kr.toxicity.hud.nms.v1_21_R6.NMSImpl()
-            MinecraftVersion.V1_21_6, MinecraftVersion.V1_21_7, MinecraftVersion.V1_21_8 -> kr.toxicity.hud.nms.v1_21_R5.NMSImpl()
-            MinecraftVersion.V1_21_5 -> kr.toxicity.hud.nms.v1_21_R4.NMSImpl()
-            MinecraftVersion.V1_21_4 -> kr.toxicity.hud.nms.v1_21_R3.NMSImpl()
-            MinecraftVersion.V1_21_2, MinecraftVersion.V1_21_3 -> kr.toxicity.hud.nms.v1_21_R2.NMSImpl()
-            MinecraftVersion.V1_21, MinecraftVersion.V1_21_1 -> kr.toxicity.hud.nms.v1_21_R1.NMSImpl()
-            MinecraftVersion.V1_20_5, MinecraftVersion.V1_20_6 -> kr.toxicity.hud.nms.v1_20_R4.NMSImpl()
-            MinecraftVersion.V1_20_3, MinecraftVersion.V1_20_4 -> kr.toxicity.hud.nms.v1_20_R3.NMSImpl()
-            else -> {
-                warn("Unsupported minecraft version: $minecraftVersion")
-                pluginManager.disablePlugin(this)
-                return
-            }
+        // STRICT CHECK: Only 1.21.11 allowed
+        if (minecraftVersion != MinecraftVersion.V1_21_11) {
+             warn("Unsupported Minecraft version: $minecraftVersion. This version of BetterHud STRICTLY requires Paper 1.21.11.")
+             pluginManager.disablePlugin(this)
+             return
         }
+        // STRICT CHECK: Folia or Paper required
+        if (!isPaper) {
+             warn("Unsupported Platform. This version of BetterHud STRICTLY requires Paper or Folia.")
+             pluginManager.disablePlugin(this)
+             return
+        }
+
+        // Always use v1_21_R7 for 1.21.11
+        nms = kr.toxicity.hud.nms.v1_21_R7.NMSImpl()
         nms.registerCommand(CommandManager.module)
     }
 
@@ -263,9 +267,10 @@ class BukkitBootstrapImpl : BukkitBootstrap, JavaPlugin() {
                 log.info(
                     "Minecraft version: $minecraftVersion, NMS version: ${nms.version}",
                     "Platform: ${when {
+                        isBTCCore -> "BTC Core"
                         isFolia -> "Folia"
                         isPaper -> "Paper"
-                        else -> "Bukkit"
+                        else -> "Bukkit (Legacy - UNSUPPORTED)"
                     }}",
                     "Plugin enabled."
                 )
