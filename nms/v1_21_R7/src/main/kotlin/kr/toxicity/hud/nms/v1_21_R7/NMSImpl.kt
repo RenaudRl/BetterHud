@@ -35,7 +35,8 @@ import net.minecraft.nbt.NbtOps
 import net.minecraft.network.Connection
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.chat.ComponentSerialization
-import net.minecraft.network.protocol.game.ClientboundBossEventPacket
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.network.protocol.Packet
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.network.ServerCommonPacketListenerImpl
 import net.minecraft.server.network.ServerGamePacketListenerImpl
@@ -70,17 +71,38 @@ class NMSImpl : NMS {
         private const val INJECT_NAME = BetterHud.DEFAULT_NAMESPACE
         private val bossBarMap = ConcurrentHashMap<UUID, PlayerBossBar>()
 
-        @Suppress("UNCHECKED_CAST")
-        private val operation = ClientboundBossEventPacket::class.java.declaredClasses.first {
-            it.isEnum
-        } as Class<out Enum<*>>
+        private val bossBarClass = Class.forName("net.minecraft.network.protocol.game.ClientboundBossEventPacket")
+        private val operationClass = bossBarClass.declaredClasses.first { it.isEnum } as Class<out Enum<*>>
+        private val operationEnum = operationClass.enumConstants
 
-        private val operationEnum = operation.enumConstants
+        private val addPacketMethod = bossBarClass.getMethod("createAddPacket", BossEvent::class.java)
+        private val removePacketMethod = bossBarClass.getMethod("createRemovePacket", UUID::class.java)
+        private val updateNamePacketMethod = bossBarClass.getMethod("createUpdateNamePacket", BossEvent::class.java)
+        private val updateProgressPacketMethod = bossBarClass.getMethod("createUpdateProgressPacket", BossEvent::class.java)
+        private val updateStylePacketMethod = bossBarClass.getMethod("createUpdateStylePacket", BossEvent::class.java)
+        private val updatePropertiesPacketMethod = bossBarClass.getMethod("createUpdatePropertiesPacket", BossEvent::class.java)
+
+        @Suppress("UNCHECKED_CAST")
+        private val streamCodec = bossBarClass.getField("STREAM_CODEC").get(null) as StreamCodec<RegistryFriendlyByteBuf, Packet<*>>
+
+        @Suppress("UNCHECKED_CAST")
+        private val operation = operationClass
+
+        fun createAddPacket(bossEvent: BossEvent) = addPacketMethod.invoke(null, bossEvent) as Packet<*>
+        fun createRemovePacket(uuid: UUID) = removePacketMethod.invoke(null, uuid) as Packet<*>
+        fun createUpdateNamePacket(bossEvent: BossEvent) = updateNamePacketMethod.invoke(null, bossEvent) as Packet<*>
+        fun createUpdateProgressPacket(bossEvent: BossEvent) = updateProgressPacketMethod.invoke(null, bossEvent) as Packet<*>
+        fun createUpdateStylePacket(bossEvent: BossEvent) = updateStylePacketMethod.invoke(null, bossEvent) as Packet<*>
+        fun createUpdatePropertiesPacket(bossEvent: BossEvent) = updatePropertiesPacketMethod.invoke(null, bossEvent) as Packet<*>
 
         private val getGameProfile: (net.minecraft.world.entity.player.Player) -> GameProfile = createAdaptedFieldGetter { it.gameProfile }
         private val getConnection: (ServerCommonPacketListenerImpl) -> Connection = createAdaptedFieldGetter { it.connection }
 
-        fun createBossBar(byteBuf: RegistryFriendlyByteBuf): ClientboundBossEventPacket = ClientboundBossEventPacket.STREAM_CODEC.decode(byteBuf)
+        fun createBossBar(byteBuf: RegistryFriendlyByteBuf): Packet<*> = streamCodec.decode(byteBuf)
+        fun encodeBossBar(byteBuf: RegistryFriendlyByteBuf, packet: Any) {
+            @Suppress("UNCHECKED_CAST")
+            streamCodec.encode(byteBuf, packet as Packet<*>)
+        }
 
         private fun toAdventure(component: net.minecraft.network.chat.Component) = GsonComponentSerializer.gson().deserialize(CraftChatMessage.toJSON(component))
         private fun fromAdventure(component: Component) = CraftChatMessage.fromJSON(GsonComponentSerializer.gson().serialize(component))
@@ -253,7 +275,7 @@ class NMSImpl : NMS {
             val line = BetterHudAPI.inst().configManager.bossbarLine - 1
             val dummyBars = (0..<line).map {
                 HudBossBar(UUID.randomUUID(), Component.empty(), color).apply {
-                    listener.send(ClientboundBossEventPacket.createAddPacket(this))
+                    listener.send(createAddPacket(this))
                 }
             }
             val dummyBarsUUID = dummyBars.map {
@@ -264,7 +286,7 @@ class NMSImpl : NMS {
         private val dummyBarHandleMap = Collections.synchronizedMap(LinkedHashMap<UUID, CachedHudBossbar>())
         private val otherBarCache = ConcurrentLinkedQueue<Pair<UUID, HudByteBuf>>()
         private val uuid = UUID.randomUUID().apply {
-            listener.send(ClientboundBossEventPacket.createAddPacket(HudBossBar(this, component, color)))
+            listener.send(createAddPacket(HudBossBar(this, component, color)))
         }
 
         private var last: HudBossBar = HudBossBar(uuid, Component.empty(), color)
@@ -280,7 +302,7 @@ class NMSImpl : NMS {
         fun update(color: BossBar.Color, component: Component) {
             val bossBar = HudBossBar(uuid, component, color)
             last = bossBar
-            listener.send(ClientboundBossEventPacket.createUpdateNamePacket(bossBar))
+            listener.send(createUpdateNamePacket(bossBar))
         }
 
         private fun writeBossBar(buf: HudByteBuf, ctx: ChannelHandlerContext?, msg: Any?, promise: ChannelPromise?) {
@@ -370,7 +392,7 @@ class NMSImpl : NMS {
                 }
                 otherBarCache.poll()?.let { target ->
                     val targetBuf = HudByteBuf(Unpooled.copiedBuffer(target.second.unwrap()))
-                    listener.send(ClientboundBossEventPacket.createRemovePacket(target.first))
+                    listener.send(createRemovePacket(target.first))
                     changeName(targetBuf = targetBuf)
                     sendProgress(targetBuf = targetBuf)
                     sendStyle(targetBuf = targetBuf)
@@ -379,10 +401,10 @@ class NMSImpl : NMS {
                 } ?: run {
                     onUse = uuid to HudByteBuf(buf.unwrap())
                     BetterHudAPI.inst().playerManager.getHudPlayer(player.uniqueId)?.additionalComponent = null
-                    listener.send(ClientboundBossEventPacket.createUpdateNamePacket(last))
-                    listener.send(ClientboundBossEventPacket.createUpdateProgressPacket(last))
-                    listener.send(ClientboundBossEventPacket.createUpdateStylePacket(last))
-                    listener.send(ClientboundBossEventPacket.createUpdatePropertiesPacket(last))
+                    listener.send(createUpdateNamePacket(last))
+                    listener.send(createUpdateProgressPacket(last))
+                    listener.send(createUpdateStylePacket(last))
+                    listener.send(createUpdatePropertiesPacket(last))
                 }
                 return result
             }
@@ -423,10 +445,10 @@ class NMSImpl : NMS {
                                     sendProperties(getBuf = getBuf(newCache.hud.uuid), targetBuf = targetBuf)
                                 }
                                 if (!swap) {
-                                    listener.send(ClientboundBossEventPacket.createUpdateNamePacket(last.hud))
-                                    listener.send(ClientboundBossEventPacket.createUpdateProgressPacket(last.hud))
-                                    listener.send(ClientboundBossEventPacket.createUpdateStylePacket(last.hud))
-                                    listener.send(ClientboundBossEventPacket.createUpdatePropertiesPacket(last.hud))
+                                    listener.send(createUpdateNamePacket(last.hud))
+                                    listener.send(createUpdateProgressPacket(last.hud))
+                                    listener.send(createUpdateStylePacket(last.hud))
+                                    listener.send(createUpdatePropertiesPacket(last.hud))
                                 }
                             }
                             2 -> sendProgress(getBuf = getBuf(it.hud.uuid))
@@ -481,11 +503,11 @@ class NMSImpl : NMS {
         }
 
         override fun write(ctx: ChannelHandlerContext?, msg: Any?, promise: ChannelPromise?) {
-            if (msg is ClientboundBossEventPacket) {
+            if (msg != null && bossBarClass.isInstance(msg)) {
 
                 if (BetterHudAPI.inst().isMergeBossBar) {
                     val buf = HudByteBuf(Unpooled.buffer(1 shl 4)).apply {
-                        ClientboundBossEventPacket.STREAM_CODEC.encode(this, msg)
+                        encodeBossBar(this, msg)
                     }
                     writeBossBar(buf, ctx, msg, promise)
                 } else super.write(ctx, msg, promise)
