@@ -64,7 +64,11 @@ class BukkitBootstrapImpl : BukkitBootstrap, JavaPlugin() {
         Class.forName("io.papermc.paper.threadedregions.RegionizedServer")
         true
     }.getOrDefault(false)
-    private val isPaper = isFolia || runCatching {
+    private val isBtcCore = runCatching {
+        Class.forName("com.infernalsuite.asp.config.BTCCoreConfig")
+        true
+    }.getOrDefault(false)
+    private val isPaper = isFolia || isBtcCore || runCatching {
         Class.forName("io.papermc.paper.configuration.PaperConfigurations")
         true
     }.getOrDefault(false)
@@ -265,6 +269,7 @@ class BukkitBootstrapImpl : BukkitBootstrap, JavaPlugin() {
                 log.info(
                     "Minecraft version: $minecraftVersion, NMS version: ${nms.version}",
                     "Platform: ${when {
+                        isBtcCore -> "BTC Core"
                         isFolia -> "Folia"
                         isPaper -> "Paper"
                         else -> "Bukkit"
