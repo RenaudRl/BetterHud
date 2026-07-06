@@ -1,0 +1,1355 @@
+# BTC-CORE API Documentation
+
+BTC-CORE is a highly specialized, high-performance Minecraft server fork built upon Advanced Slime Paper (ASPaper), combining the best features from Paper, Folia, Purpur, Pufferfish, SparklyPaper, Leaf, and Canvas. It provides native SlimeWorld support through the Slime Region Format (SRF), comprehensive performance optimizations, custom event API, security features, and quality-of-life improvements. BTC-CORE targets production environments requiring maximum performance, stability, and enterprise-grade features.
+
+This documentation covers all BTC-CORE specific APIs, configurations, events, and features. BTC-CORE inherits the full Advanced Slime Paper API for world management (see advancedslimepaper api.txt) and extends it with additional capabilities.
+
+## Table of Contents
+
+1. Fork Hierarchy & Compatibility
+2. Configuration System (BTCCoreConfig)
+3. Performance APIs & Managers
+4. Security Features & Anti-Cheat
+5. Quality of Life Features  
+6. Custom Events API
+7. SlimeWorld Extensions
+8. Async Pathfinding
+9. Monitoring & Profiling
+10. Commands
+
+---
+
+## 1. Fork Hierarchy & Compatibility
+
+BTC-CORE inherits from multiple forks in the following hierarchy:
+
+```
+Minecraft Server
+    └── CraftBukkit
+        └── Spigot
+            └── Paper
+                ├── Folia (Regionized Multithreading)
+                ├── Purpur (Gameplay Customization)
+                ├── Pufferfish (Performance Optimizations)
+                ├── SparklyPaper (SlimeWorld Optimizations)
+                ├── Leaf (Async Systems)
+                └── Canvas (Parallel Ticking)
+                    └── Advanced Slime Paper (ASPaper)
+                        └── BTC-CORE
+```
+
+### Compatibility Notice
+
+BTC-CORE may break compatibility with plugins expecting standard Paper behavior:
+
+- **Folia Thread Model**: Some operations require region-aware scheduling
+- **SlimeWorld Format**: Standard world save/load APIs behave differently  
+- **Async Pathfinding**: AI may run on separate threads
+- **Optimized Tick Loops**: Some events may fire at different rates
+- **Network Layer Changes**: Packet timing may vary due to optimizations
+
+### Maven Dependency
+
+```xml
+<repository>
+    <id>btccore-repo</id>
+    <url>https://your-maven-repo.example.com/repository</url>
+</repository>
+
+<dependency>
+    <groupId>com.infernalsuite.asp</groupId>
+    <artifactId>aspaper-api</artifactId>
+    <version>1.21.11-R0.1-SNAPSHOT</version>
+    <scope>provided</scope>
+</dependency>
+```
+
+---
+
+## 2. Configuration System (BTCCoreConfig)
+
+BTC-CORE uses a comprehensive YAML configuration system accessible via BTCCoreConfig.
+
+### Configuration File: btccore.yml
+
+```yaml
+# BTC-CORE Configuration
+info:
+  version: "1.0"
+
+# ===================
+# ASYNC PROCESSING
+# ===================
+async:
+  pathfinding:
+    enabled: false
+    max-threads: 0  # 0 = auto (available processors / 4)
+    keepalive: 60
+    queue-size: 0   # 0 = auto (max-threads * 256)
+    reject-policy: "FLUSH_ALL"  # FLUSH_ALL, CALLER_RUNS, DISCARD, DISCARD_OLDEST
+  
+  mob-spawning:
+    enabled: true
+
+# ===================
+# ENTITY OPTIMIZATIONS (Pufferfish Port)
+# ===================
+entity:
+  dear:
+    enabled: true
+    start-distance: 12
+    max-tick-freq: 20
+    activation-dist-mod: 8
+  
+  suffocation-optimization: true
+  inactive-goal-selector-throttle: true
+  
+  projectile:
+    max-loads-per-tick: 10
+    max-loads-per-projectile: 10
+
+# ===================
+# HOPPER OPTIMIZATIONS (SparklyPaper)
+# ===================
+hopper:
+  throttling:
+    enabled: true
+    ticks: 40
+
+# ===================
+# FREEDOM CHAT (Native Integration)
+# ===================
+freedomchat:
+  enabled: true
+  rewrite-chat: true
+  enforce-secure-chat: true
+  prevent-chat-reports: true
+  bedrock-only: false
+
+# ===================
+# PACKET LIMITER
+# ===================
+network:
+  spam-limiter:
+    incoming-packet-threshold: 300
+
+# ===================
+# PERFORMANCE OPTIMIZATIONS (Phase 3-8)
+# ===================
+performance:
+  entity-collision-throttle:
+    enabled: true
+    interval-ticks: 2
+    max-per-entity: 8
+  
+  particle-culling:
+    enabled: true
+    max-distance-squared: 4096
+    max-per-tick: 50
+  
+  sound-culling:
+    enabled: true
+    max-distance-squared: 2500
+  
+  scoreboard-optimization:
+    enabled: true
+    batch-updates: true
+    update-interval: 5
+  
+  light-throttle:
+    enabled: true
+    max-updates-per-tick: 50
+  
+  lazy-chunk-tickets: true
+  batched-inventory-updates: true
+  nbt-compression-cache: true
+  
+  chunk-prefetch:
+    enabled: true
+    radius: 2
+  
+  per-world-tick-rate:
+    enabled: true
+    default-rate: 1
+  
+  projectile-pooling:
+    enabled: true
+    pool-size: 100
+  
+  redstone-throttle:
+    enabled: true
+    max-updates-per-tick: 1000
+  
+  async-block-updates:
+    enabled: false
+
+# ===================
+# SECURITY & ANTI-CHEAT (Phase 6)
+# ===================
+security:
+  combat-log-prevention:
+    enabled: true
+    duration-seconds: 10
+  
+  cps-limit:
+    enabled: true
+    max-cps: 20
+  
+  reach-validation:
+    enabled: true
+    max-reach: 4.0
+  
+  flight-detection:
+    enabled: true
+    strict-mode: false
+  
+  exploit-logging:
+    enabled: true
+    log-to-file: true
+
+# ===================
+# QUALITY OF LIFE (Phase 7)
+# ===================
+qol:
+  async-tab-complete:
+    enabled: true
+    cache-duration-ms: 5000
+  
+  join-queue:
+    enabled: false
+    max-players: 100
+    priority-permission: "btccore.queue.priority"
+  
+  vanish-levels:
+    enabled: true
+    max-level: 3
+  
+  teleport-warmup:
+    enabled: false
+    duration-seconds: 3
+    cancel-on-move: true
+  
+  maintenance-mode:
+    enabled: false
+    bypass-permission: "btccore.maintenance.bypass"
+    kick-message: "<red>Server is under maintenance. Please try again later."
+  
+  player-data-backup:
+    enabled: true
+    max-backups: 5
+    interval-minutes: 60
+
+# ===================
+# CANVAS SETTINGS
+# ===================
+canvas:
+  chunks:
+    use-euclidean-distance-squared: true
+```
+
+### Accessing Configuration Programmatically
+
+```java
+import com.infernalsuite.asp.config.BTCCoreConfig;
+
+public class ConfigAccessExample {
+    public void accessConfig() {
+        // Load configuration (done automatically on server start)
+        BTCCoreConfig.load();
+        
+        // === Async Pathfinding ===
+        boolean asyncPathfinding = BTCCoreConfig.asyncPathfindingEnabled;
+        int maxThreads = BTCCoreConfig.asyncPathfindingMaxThreads;
+        
+        // === DEAR (Dynamic Entity Activation Range) ===
+        boolean dearEnabled = BTCCoreConfig.dearEnabled;
+        int startDistance = BTCCoreConfig.dearStartDistance;
+        int startDistanceSquared = BTCCoreConfig.dearStartDistanceSquared;
+        int maxTickFreq = BTCCoreConfig.dearMaxTickFreq;
+        
+        // === Suffocation Optimization ===
+        boolean suffocationOpt = BTCCoreConfig.suffocationOptimization;
+        
+        // === Inactive Goal Selector ===
+        boolean inactiveGoalThrottle = BTCCoreConfig.inactiveGoalSelectorThrottle;
+        
+        // === Projectile Loading ===
+        int maxLoadsPerTick = BTCCoreConfig.projectileMaxLoadsPerTick;
+        int maxLoadsPerProjectile = BTCCoreConfig.projectileMaxLoadsPerProjectile;
+        
+        // === Hopper Throttling ===
+        boolean hopperThrottle = BTCCoreConfig.hopperThrottlingEnabled;
+        int hopperThrottleTicks = BTCCoreConfig.hopperThrottlingTicks;
+        
+        // === Freedom Chat ===
+        boolean freedomChat = BTCCoreConfig.freedomChatEnabled;
+        boolean preventChatReports = BTCCoreConfig.freedomChatPreventChatReports;
+        
+        // === Performance Settings ===
+        boolean collisionThrottle = BTCCoreConfig.entityCollisionThrottleEnabled;
+        boolean particleCulling = BTCCoreConfig.particleCullingEnabled;
+        boolean soundCulling = BTCCoreConfig.soundCullingEnabled;
+        boolean scoreboardOpt = BTCCoreConfig.scoreboardOptimizationEnabled;
+        boolean lightThrottle = BTCCoreConfig.lightThrottleEnabled;
+        boolean lazyChunkTickets = BTCCoreConfig.lazyChunkTickets;
+        boolean batchedInventory = BTCCoreConfig.batchedInventoryUpdates;
+        boolean nbtCache = BTCCoreConfig.nbtCompressionCache;
+        
+        // === Security Settings ===
+        boolean combatLog = BTCCoreConfig.combatLogPreventionEnabled;
+        int combatLogDuration = BTCCoreConfig.combatLogDuration;
+        boolean cpsLimit = BTCCoreConfig.cpsLimitEnabled;
+        int maxCPS = BTCCoreConfig.cpsLimitMax;
+        boolean reachValidation = BTCCoreConfig.reachValidationEnabled;
+        double maxReach = BTCCoreConfig.reachValidationMax;
+        boolean flightDetection = BTCCoreConfig.flightDetectionEnabled;
+        boolean exploitLogging = BTCCoreConfig.exploitLoggingEnabled;
+        
+        // === QoL Settings ===
+        boolean asyncTabComplete = BTCCoreConfig.asyncTabCompleteEnabled;
+        boolean joinQueue = BTCCoreConfig.joinQueueEnabled;
+        boolean vanishLevels = BTCCoreConfig.vanishLevelsEnabled;
+        boolean teleportWarmup = BTCCoreConfig.teleportWarmupEnabled;
+        boolean maintenanceMode = BTCCoreConfig.maintenanceModeEnabled;
+        boolean playerDataBackup = BTCCoreConfig.playerDataBackupEnabled;
+    }
+}
+```
+
+---
+
+## 3. Performance APIs & Managers
+
+### PerformanceManager
+
+Central utility class for performance optimization features.
+
+```java
+import com.infernalsuite.asp.performance.PerformanceManager;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.Location;
+
+public class PerformanceExample {
+    private final PerformanceManager perfManager = new PerformanceManager();
+    
+    // --- Entity Collision Throttling ---
+    public void handleCollision(Entity entity) {
+        // Check if collision processing should be skipped this tick
+        if (perfManager.shouldSkipCollision(entity)) {
+            return; // Skip this tick
+        }
+        // Process collision...
+    }
+    
+    // --- Particle Culling ---
+    public void spawnParticle(Location loc, Player viewer) {
+        // Check if particle should be culled for this player
+        if (perfManager.shouldCullParticle(loc, viewer)) {
+            return; // Don't send to this player
+        }
+        // Spawn particle...
+    }
+    
+    // --- Sound Culling ---
+    public void playSound(Location loc, Player viewer) {
+        // Check if sound should be culled
+        if (perfManager.shouldCullSound(loc, viewer)) {
+            return;
+        }
+        // Play sound...
+    }
+    
+    // --- Scoreboard Batching ---
+    public void updateScoreboard(Player player) {
+        // Queue an update instead of sending immediately
+        perfManager.queueScoreboardUpdate(player);
+    }
+    
+    // Internal scheduled task flushes batched updates
+    void flushScoreboard() {
+        perfManager.flushScoreboardUpdates();
+    }
+    
+    // --- Light Updates Throttling ---
+    public boolean canProcessLightUpdate() {
+        return perfManager.canProcessLightUpdate();
+    }
+    
+    void resetLightUpdates() {
+        perfManager.resetLightUpdates();
+    }
+    
+    // --- Chunk Prefetching ---
+    public void prefetchChunks(org.bukkit.Chunk centerChunk) {
+        perfManager.prefetchSurroundingChunks(centerChunk);
+    }
+    
+    // --- Projectile Pooling ---
+    public org.bukkit.entity.Arrow getPooledArrow() {
+        return perfManager.getPooledProjectile(org.bukkit.entity.Arrow.class);
+    }
+    
+    public void returnArrow(org.bukkit.entity.Arrow arrow) {
+        perfManager.returnProjectile(arrow);
+    }
+    
+    // --- Redstone Throttling ---
+    public boolean canProcessRedstone() {
+        return perfManager.canProcessRedstoneUpdate();
+    }
+}
+```
+
+### Configuration Constants
+
+```java
+// Entity Collision Throttle Defaults
+int COLLISION_INTERVAL_TICKS = 2;         // Check every N ticks
+int COLLISION_MAX_PER_ENTITY = 8;         // Max collisions per entity
+
+// Particle Culling Defaults
+int PARTICLE_MAX_DISTANCE_SQ = 4096;      // 64 blocks squared
+int PARTICLE_MAX_PER_TICK = 50;
+
+// Sound Culling Defaults
+int SOUND_MAX_DISTANCE_SQ = 2500;         // 50 blocks squared
+
+// Scoreboard Defaults
+int SCOREBOARD_UPDATE_INTERVAL = 5;       // Ticks between batched sends
+
+// Light Throttle Defaults
+int LIGHT_MAX_UPDATES_PER_TICK = 50;
+
+// Chunk Prefetch Defaults
+int PREFETCH_RADIUS = 2;                  // Chunks in each direction
+
+// Projectile Pool Defaults
+int PROJECTILE_POOL_SIZE = 100;
+
+// Redstone Throttle Defaults
+int REDSTONE_MAX_UPDATES_PER_TICK = 1000;
+```
+
+---
+
+## 4. Security Features & Anti-Cheat
+
+### CombatLogManager
+
+Prevents players from logging out during combat.
+
+```java
+import com.infernalsuite.asp.security.CombatLogManager;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class CombatLogExample implements Listener {
+    private final CombatLogManager combatManager;
+    
+    public CombatLogExample(JavaPlugin plugin) {
+        this.combatManager = new CombatLogManager(plugin);
+    }
+    
+    // --- Automatic Combat Tagging on Damage ---
+    @EventHandler
+    public void onDamage(EntityDamageByEntityEvent event) {
+        if (event.getEntity() instanceof Player victim) {
+            if (event.getDamager() instanceof Player attacker) {
+                // Tag both players in combat  
+                combatManager.tagPlayer(victim);
+                combatManager.tagPlayer(attacker);
+                
+                victim.sendMessage("§cYou are now in combat!");
+                attacker.sendMessage("§cYou are now in combat!");
+            }
+        }
+    }
+    
+    // --- Handle Combat Log on Disconnect ---
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        if (combatManager.isInCombat(player)) {
+            // Player combat logged - kill them
+            player.setHealth(0);
+            player.damage(1000);
+            
+            // Broadcast message
+            event.quitMessage(null); // Remove default message
+            player.getServer().broadcast(
+                net.kyori.adventure.text.Component.text(
+                    "§c" + player.getName() + " combat logged!"
+                )
+            );
+            
+            // Log the exploit
+            combatManager.logCombatLog(player);
+        }
+    }
+    
+    // --- Check Combat Status ---
+    public boolean isPlayerInCombat(Player player) {
+        return combatManager.isInCombat(player);
+    }
+    
+    // --- Get Remaining Combat Time ---
+    public long getRemainingCombatTime(Player player) {
+        return combatManager.getRemainingTime(player);
+    }
+    
+    // --- Force Remove Combat Tag ---
+    public void removeCombatTag(Player player) {
+        combatManager.untagPlayer(player);
+    }
+}
+```
+
+### ExploitLogger
+
+Logs and tracks potential exploits and cheats.
+
+```java
+import com.infernalsuite.asp.security.ExploitLogger;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class ExploitDetectionExample implements Listener {
+    private final ExploitLogger exploitLogger;
+    
+    public ExploitDetectionExample(JavaPlugin plugin) {
+        this.exploitLogger = new ExploitLogger(plugin);
+    }
+    
+    // --- CPS (Clicks Per Second) Tracking ---
+    @EventHandler
+    public void onInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        
+        // Register the click
+        exploitLogger.registerClick(player);
+        
+        // Check if player exceeds CPS limit
+        int currentCPS = exploitLogger.getCurrentCPS(player);
+        if (exploitLogger.exceedsCPSLimit(player)) {
+            // Log the violation
+            exploitLogger.logExploit(player, ExploitLogger.ExploitType.CPS_EXCEED, 
+                "CPS: " + currentCPS);
+            
+            // Cancel the action
+            event.setCancelled(true);
+            player.sendMessage("§cYou are clicking too fast!");
+        }
+    }
+    
+    // --- Reach Validation ---
+    @EventHandler
+    public void onDamage(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player attacker) {
+            double distance = attacker.getLocation().distance(
+                event.getEntity().getLocation()
+            );
+            
+            // Check if reach exceeds configured maximum
+            if (exploitLogger.exceedsReachLimit(distance)) {
+                // Log the violation
+                exploitLogger.logExploit(attacker, ExploitLogger.ExploitType.REACH, 
+                    "Distance: " + String.format("%.2f", distance));
+                
+                // Cancel the attack
+                event.setCancelled(true);
+            }
+        }
+    }
+    
+    // --- Manual Exploit Logging ---
+    public void logCustomExploit(Player player, String description) {
+        exploitLogger.logExploit(player, ExploitLogger.ExploitType.OTHER, description);
+    }
+    
+    // --- Get Player Violation Count ---
+    public int getViolations(Player player, ExploitLogger.ExploitType type) {
+        return exploitLogger.getViolationCount(player, type);
+    }
+    
+    // --- Clear Violations ---
+    public void clearViolations(Player player) {
+        exploitLogger.clearViolations(player);
+    }
+}
+```
+
+### ExploitType Enum
+
+```java
+public enum ExploitType {
+    CPS_EXCEED,      // Clicks per second exceeded
+    REACH,           // Attack reach exceeded
+    FLIGHT,          // Unauthorized flight detected
+    SPEED,           // Movement speed exceeded
+    PACKET_SPAM,     // Excessive packet sending
+    OTHER            // Custom/other exploits
+}
+```
+
+---
+
+## 5. Quality of Life Features
+
+### JoinQueueManager
+
+Manages player join queue when server is at capacity.
+
+```java
+import com.infernalsuite.asp.qol.JoinQueueManager;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class JoinQueueExample implements Listener {
+    private final JoinQueueManager queueManager;
+    
+    public JoinQueueExample(JavaPlugin plugin) {
+        this.queueManager = new JoinQueueManager(plugin);
+    }
+    
+    // --- Handle Player Login ---
+    @EventHandler
+    public void onLogin(PlayerLoginEvent event) {
+        Player player = event.getPlayer();
+        
+        // Check if server is full
+        if (queueManager.isServerFull()) {
+            // Check for priority permission
+            if (player.hasPermission("btccore.queue.priority")) {
+                // Allow priority players
+                return;
+            }
+            
+            // Add to queue
+            int position = queueManager.addToQueue(player);
+            
+            // Disallow login, show queue position
+            event.disallow(PlayerLoginEvent.Result.KICK_OTHER,
+                net.kyori.adventure.text.Component.text(
+                    "§eServer is full. You are #" + position + " in queue."
+                )
+            );
+        }
+    }
+    
+    // --- Get Queue Position ---
+    public int getQueuePosition(Player player) {
+        return queueManager.getPosition(player);
+    }
+    
+    // --- Remove from Queue ---
+    public void removeFromQueue(Player player) {
+        queueManager.removeFromQueue(player);
+    }
+    
+    // --- Get Queue Size ---
+    public int getQueueSize() {
+        return queueManager.getQueueSize();
+    }
+    
+    // --- Process Queue (called periodically) ---
+    public void processQueue() {
+        queueManager.processNextInQueue();
+    }
+}
+```
+
+### MaintenanceModeManager
+
+Controls server maintenance mode.
+
+```java
+import com.infernalsuite.asp.qol.MaintenanceModeManager;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class MaintenanceModeExample implements Listener {
+    private final MaintenanceModeManager maintenanceManager;
+    
+    public MaintenanceModeExample(JavaPlugin plugin) {
+        this.maintenanceManager = new MaintenanceModeManager(plugin);
+    }
+    
+    // --- Toggle Maintenance Mode ---
+    public void enableMaintenance() {
+        maintenanceManager.setEnabled(true);
+        
+        // Kick all players without bypass permission
+        for (Player player : maintenanceManager.getPlugin().getServer().getOnlinePlayers()) {
+            if (!maintenanceManager.canBypass(player)) {
+                player.kick(maintenanceManager.getKickMessage());
+            }
+        }
+    }
+    
+    public void disableMaintenance() {
+        maintenanceManager.setEnabled(false);
+    }
+    
+    // --- Handle Player Login During Maintenance ---
+    @EventHandler
+    public void onLogin(PlayerLoginEvent event) {
+        if (maintenanceManager.isEnabled()) {
+            Player player = event.getPlayer();
+            
+            // Check bypass permission
+            if (!maintenanceManager.canBypass(player)) {
+                event.disallow(
+                    PlayerLoginEvent.Result.KICK_OTHER,
+                    maintenanceManager.getKickMessage()
+                );
+            }
+        }
+    }
+    
+    // --- Set Custom Kick Message ---
+    public void setKickMessage(String message) {
+        maintenanceManager.setKickMessage(message);
+    }
+    
+    // --- Check Status ---
+    public boolean isMaintenanceActive() {
+        return maintenanceManager.isEnabled();
+    }
+}
+```
+
+### PlayerDataBackupManager
+
+Automatic player data backup system.
+
+```java
+import com.infernalsuite.asp.qol.PlayerDataBackupManager;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import java.io.File;
+import java.util.List;
+
+public class PlayerDataBackupExample {
+    private final PlayerDataBackupManager backupManager;
+    
+    public PlayerDataBackupExample(JavaPlugin plugin) {
+        this.backupManager = new PlayerDataBackupManager(plugin);
+        
+        // Start automatic backups
+        backupManager.startAutomaticBackups();
+    }
+    
+    // --- Manual Backup ---
+    public void backupPlayer(Player player) {
+        backupManager.createBackup(player);
+    }
+    
+    // --- Backup All Online Players ---
+    public void backupAllPlayers() {
+        backupManager.backupAllOnlinePlayers();
+    }
+    
+    // --- Get Available Backups ---
+    public List<File> getBackupsForPlayer(Player player) {
+        return backupManager.getBackups(player.getUniqueId());
+    }
+    
+    // --- Restore from Backup ---
+    public boolean restoreBackup(Player player, File backupFile) {
+        return backupManager.restoreBackup(player, backupFile);
+    }
+    
+    // --- Restore Latest Backup ---
+    public boolean restoreLatest(Player player) {
+        return backupManager.restoreLatestBackup(player);
+    }
+    
+    // --- Cleanup Old Backups ---
+    public void cleanupOldBackups() {
+        backupManager.cleanupOldBackups();
+    }
+    
+    // --- Stop Automatic Backups ---
+    public void stopBackups() {
+        backupManager.stopAutomaticBackups();
+    }
+}
+```
+
+---
+
+## 6. Custom Events API
+
+BTC-CORE provides custom events for enhanced game mechanics control.
+
+### PreDamageCalculationEvent
+
+Fires before damage calculation, allowing modification of damage sources.
+
+```java
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public class PreDamageCalculationEvent extends Event implements Cancellable {
+    private static final HandlerList HANDLERS = new HandlerList();
+    private boolean cancelled = false;
+    
+    private final Entity victim;
+    private final Entity damager;
+    private double baseDamage;
+    private double damageMultiplier = 1.0;
+    
+    // Constructor, getters, setters...
+    
+    public Entity getVictim() { return victim; }
+    public Entity getDamager() { return damager; }
+    
+    public double getBaseDamage() { return baseDamage; }
+    public void setBaseDamage(double damage) { this.baseDamage = damage; }
+    
+    public double getDamageMultiplier() { return damageMultiplier; }
+    public void setDamageMultiplier(double multiplier) { this.damageMultiplier = multiplier; }
+    
+    public double getFinalDamage() { return baseDamage * damageMultiplier; }
+    
+    // Event boilerplate...
+    @Override
+    public boolean isCancelled() { return cancelled; }
+    @Override
+    public void setCancelled(boolean cancel) { this.cancelled = cancel; }
+    
+    public static HandlerList getHandlerList() { return HANDLERS; }
+    @Override
+    public HandlerList getHandlers() { return HANDLERS; }
+}
+```
+
+Usage:
+
+```java
+@EventHandler
+public void onPreDamage(PreDamageCalculationEvent event) {
+    // Apply RPG damage multipliers
+    if (event.getDamager() instanceof Player player) {
+        double strength = getPlayerStrength(player);
+        event.setDamageMultiplier(1.0 + (strength * 0.01));
+    }
+    
+    // Reduce damage to bosses
+    if (isBoss(event.getVictim())) {
+        event.setBaseDamage(event.getBaseDamage() * 0.75);
+    }
+}
+```
+
+### EntityTargetPlayerEvent
+
+Fires when an entity targets a player.
+
+```java
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public class EntityTargetPlayerEvent extends Event implements Cancellable {
+    private static final HandlerList HANDLERS = new HandlerList();
+    private boolean cancelled = false;
+    
+    private final Entity entity;
+    private final Player target;
+    private final TargetReason reason;
+    
+    public enum TargetReason {
+        CLOSEST_PLAYER,
+        ATTACKED_BY,
+        COLLISION,
+        RANDOM,
+        CUSTOM
+    }
+    
+    // Getters...
+    public Entity getEntity() { return entity; }
+    public Player getTarget() { return target; }
+    public TargetReason getReason() { return reason; }
+    
+    // Event boilerplate...
+}
+```
+
+Usage:
+
+```java
+@EventHandler
+public void onEntityTarget(EntityTargetPlayerEvent event) {
+    // Prevent mobs from targeting invisible players
+    if (event.getTarget().isInvisible()) {
+        event.setCancelled(true);
+    }
+    
+    // Prevent targeting vanished players
+    if (isVanished(event.getTarget())) {
+        event.setCancelled(true);
+    }
+}
+```
+
+### PlayerEnterRegionEvent
+
+Fires when a player enters a new Folia region.
+
+```java
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public class PlayerEnterRegionEvent extends Event implements Cancellable {
+    private static final HandlerList HANDLERS = new HandlerList();
+    private boolean cancelled = false;
+    
+    private final Player player;
+    private final int fromRegionX;
+    private final int fromRegionZ;
+    private final int toRegionX;
+    private final int toRegionZ;
+    
+    // Getters...
+    public Player getPlayer() { return player; }
+    public int getFromRegionX() { return fromRegionX; }
+    public int getFromRegionZ() { return fromRegionZ; }
+    public int getToRegionX() { return toRegionX; }
+    public int getToRegionZ() { return toRegionZ; }
+    
+    // Event boilerplate...
+}
+```
+
+Usage:
+
+```java
+@EventHandler
+public void onRegionEnter(PlayerEnterRegionEvent event) {
+    // Log region transitions for debugging
+    Bukkit.getLogger().info(event.getPlayer().getName() + 
+        " moved from region [" + event.getFromRegionX() + "," + event.getFromRegionZ() + "]" +
+        " to [" + event.getToRegionX() + "," + event.getToRegionZ() + "]");
+}
+```
+
+### AsyncChatFormatEvent
+
+Async event for chat formatting before sending.
+
+```java
+import net.kyori.adventure.text.Component;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public class AsyncChatFormatEvent extends Event implements Cancellable {
+    private static final HandlerList HANDLERS = new HandlerList();
+    private boolean cancelled = false;
+    
+    private final Player player;
+    private final Component originalMessage;
+    private Component formattedMessage;
+    private Component prefix;
+    private Component suffix;
+    
+    public AsyncChatFormatEvent(Player player, Component message) {
+        super(true); // Async event
+        this.player = player;
+        this.originalMessage = message;
+        this.formattedMessage = message;
+    }
+    
+    // Getters and setters...
+    public Player getPlayer() { return player; }
+    public Component getOriginalMessage() { return originalMessage; }
+    public Component getFormattedMessage() { return formattedMessage; }
+    public void setFormattedMessage(Component msg) { this.formattedMessage = msg; }
+    
+    public Component getPrefix() { return prefix; }
+    public void setPrefix(Component prefix) { this.prefix = prefix; }
+    
+    public Component getSuffix() { return suffix; }
+    public void setSuffix(Component suffix) { this.suffix = suffix; }
+    
+    // Event boilerplate...
+}
+```
+
+### WorldLoadPriorityEvent
+
+Controls world loading priority for optimization.
+
+```java
+import org.bukkit.World;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public class WorldLoadPriorityEvent extends Event implements Cancellable {
+    private static final HandlerList HANDLERS = new HandlerList();
+    private boolean cancelled = false;
+    
+    private final String worldName;
+    private int priority = 0;  // Higher = load first
+    private boolean async = false;
+    
+    public String getWorldName() { return worldName; }
+    
+    public int getPriority() { return priority; }
+    public void setPriority(int priority) { this.priority = priority; }
+    
+    public boolean isAsync() { return async; }
+    public void setAsync(boolean async) { this.async = async; }
+    
+    // Event boilerplate...
+}
+```
+
+### ChunkPopulateEvent
+
+Fires when a chunk is populated during world generation.
+
+```java
+import org.bukkit.Chunk;
+import org.bukkit.World;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public class ChunkPopulateEvent extends Event {
+    private static final HandlerList HANDLERS = new HandlerList();
+    
+    private final World world;
+    private final int chunkX;
+    private final int chunkZ;
+    private final Chunk chunk;
+    
+    public World getWorld() { return world; }
+    public int getChunkX() { return chunkX; }
+    public int getChunkZ() { return chunkZ; }
+    public Chunk getChunk() { return chunk; }
+    
+    // Event boilerplate...
+}
+```
+
+---
+
+## 7. SlimeWorld Extensions
+
+### CrossWorldEntityTransfer
+
+Handles pets and mounts following players between worlds.
+
+```java
+import com.infernalsuite.asp.entity.CrossWorldEntityTransfer;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
+import org.bukkit.entity.Entity;
+import org.bukkit.World;
+import org.bukkit.plugin.java.JavaPlugin;
+import java.util.List;
+
+public class EntityTransferExample {
+    private final CrossWorldEntityTransfer transferManager;
+    
+    public EntityTransferExample(JavaPlugin plugin) {
+        this.transferManager = new CrossWorldEntityTransfer(plugin);
+    }
+    
+    // --- Transfer Player with Pets ---
+    public void teleportWithPets(Player player, World targetWorld) {
+        // Get player's pets
+        List<Tameable> pets = transferManager.getPlayerPets(player);
+        
+        // Teleport player
+        player.teleport(targetWorld.getSpawnLocation());
+        
+        // Transfer pets
+        for (Tameable pet : pets) {
+            transferManager.transferEntity((Entity) pet, targetWorld, 
+                player.getLocation());
+        }
+    }
+    
+    // --- Transfer Mounted Entity ---
+    public void teleportWithMount(Player player, World targetWorld) {
+        Entity vehicle = player.getVehicle();
+        
+        if (vehicle != null) {
+            // Dismount
+            player.leaveVehicle();
+            
+            // Teleport both
+            player.teleport(targetWorld.getSpawnLocation());
+            transferManager.transferEntity(vehicle, targetWorld, 
+                player.getLocation());
+            
+            // Remount after transfer
+            transferManager.scheduleRemount(player, vehicle);
+        } else {
+            player.teleport(targetWorld.getSpawnLocation());
+        }
+    }
+    
+    // --- Check if Entity Can Transfer ---
+    public boolean canTransferEntity(Entity entity) {
+        return transferManager.isTransferable(entity);
+    }
+    
+    // --- Register Custom Transferable Entity Type ---
+    public void registerTransferableType(Class<? extends Entity> entityType) {
+        transferManager.registerTransferable(entityType);
+    }
+}
+```
+
+### Clone Unloaded SlimeWorld API
+
+Clone worlds directly from storage without loading them first.
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.properties.SlimePropertyMap;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import java.io.File;
+
+public class CloneUnloadedExample {
+    public void cloneWithoutLoading() throws Exception {
+        AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+        SlimeLoader loader = new FileLoader(new File("slime_worlds"));
+        
+        // Clone a world that is NOT currently loaded
+        // This is more efficient than loading -> cloning -> unloading
+        SlimeWorld clonedWorld = api.cloneUnloadedWorld(
+            loader,                      // Source loader
+            "template_arena",            // Source world name
+            "arena_instance_42",         // New world name
+            new SlimePropertyMap()       // Properties
+        );
+        
+        // Now load the cloned world
+        api.loadWorld(clonedWorld, false);
+        
+        System.out.println("Cloned and loaded: arena_instance_42");
+    }
+}
+```
+
+---
+
+## 8. Async Pathfinding
+
+### PathfindTaskRejectPolicy
+
+Controls behavior when pathfinding queue is full.
+
+```java
+import com.infernalsuite.asp.async.path.PathfindTaskRejectPolicy;
+
+public enum PathfindTaskRejectPolicy {
+    /**
+     * Flush all pending tasks and accept the new one.
+     * Best for high-performance servers with many entities.
+     */
+    FLUSH_ALL,
+    
+    /**
+     * Run the task on the caller thread (blocking).
+     * Safer but may cause lag spikes.
+     */
+    CALLER_RUNS,
+    
+    /**
+     * Discard the new task silently.
+     */
+    DISCARD,
+    
+    /**
+     * Discard the oldest task in the queue.
+     */
+    DISCARD_OLDEST;
+    
+    /**
+     * Parse a string to a PathfindTaskRejectPolicy.
+     */
+    public static PathfindTaskRejectPolicy fromString(String name);
+}
+```
+
+Configuration example:
+
+```yaml
+async:
+  pathfinding:
+    enabled: true
+    max-threads: 4           # Number of pathfinding threads
+    keepalive: 60            # Thread keepalive in seconds
+    queue-size: 1024         # Max queued pathfind tasks
+    reject-policy: "FLUSH_ALL"
+```
+
+---
+
+## 9. Monitoring & Profiling
+
+### SentryManager
+
+Integrated error tracking and reporting.
+
+```java
+import com.infernalsuite.asp.monitor.SentryManager;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class SentryExample {
+    public void setupSentry(JavaPlugin plugin) {
+        // Initialize Sentry with DSN from config
+        String dsn = "your-sentry-dsn";
+        SentryManager.initialize(dsn, "production");
+        
+        // Set server context
+        SentryManager.setContext("server.name", "BTC-CORE-1");
+        SentryManager.setContext("minecraft.version", "1.21.11");
+        
+        // Capture custom exception
+        try {
+            // Some operation
+        } catch (Exception e) {
+            SentryManager.captureException(e);
+        }
+        
+        // Capture with extra context
+        SentryManager.captureException(someException, context -> {
+            context.put("player", playerName);
+            context.put("world", worldName);
+            context.put("action", "world_teleport");
+        });
+        
+        // Send custom message
+        SentryManager.captureMessage("Server reached 100 TPS!", 
+            io.sentry.SentryLevel.INFO);
+    }
+}
+```
+
+Configuration:
+
+```yaml
+# btccore.yml
+sentry-dsn: "https://xxx@xxx.ingest.sentry.io/xxx"
+```
+
+---
+
+## 10. Commands
+
+### /btccore or /btc
+
+Main administration command.
+
+```
+/btccore version          - Show BTC-CORE version info
+/btccore reload           - Reload configuration
+/btccore mspt             - Show milliseconds per tick
+/btccore mspt <world>     - Show MSPT for specific world
+/btccore ping [player]    - Show player ping
+/btccore uptime           - Show server uptime
+/btccore maintenance      - Toggle maintenance mode
+/btccore debug            - Toggle debug mode
+```
+
+### /mspt
+
+Per-world MSPT monitoring (BTCCoreMSPTCommand).
+
+```java
+// Usage
+// /mspt              - Show all worlds MSPT
+// /mspt <world>      - Show specific world MSPT
+
+// Permissions
+// btccore.command.mspt  - Required permission
+```
+
+Example output:
+
+```
+=== Server MSPT ===
+Overall: 12.5ms (TPS: 20.0)
+
+world: 3.2ms
+world_nether: 1.1ms
+world_the_end: 0.8ms
+skyblock_123: 2.4ms
+```
+
+### /ping
+
+Player ping information (BTCCorePingCommand).
+
+```
+/ping                     - Show your own ping
+/ping <player>            - Show another player's ping
+
+Permissions: btccore.command.ping
+```
+
+### /uptime
+
+Server uptime display (BTCCoreUptimeCommand).
+
+```
+/uptime                   - Show server uptime
+
+Permissions: btccore.command.uptime
+
+Example output:
+Server Uptime: 2d 5h 32m 15s
+```
+
+---
+
+## Summary
+
+BTC-CORE provides a comprehensive suite of APIs for high-performance Minecraft server development. The core systems include:
+
+1. **Configuration**: Extensive YAML-based settings via BTCCoreConfig for all features
+2. **Performance**: PerformanceManager with collision throttling, particle/sound culling, scoreboard batching, light throttling, chunk prefetching, projectile pooling, and redstone throttling
+3. **Security**: CombatLogManager for combat logging prevention, ExploitLogger for CPS tracking, reach validation, and exploit logging
+4. **QoL**: JoinQueueManager, MaintenanceModeManager, PlayerDataBackupManager for server administration
+5. **Events**: Custom events for damage calculation, entity targeting, region transitions, chat formatting, world loading, and chunk population
+6. **SlimeWorld**: CrossWorldEntityTransfer for pet/mount handling, cloneUnloadedWorld for efficient world cloning
+7. **Async**: Configurable async pathfinding with multiple reject policies
+8. **Monitoring**: Sentry integration for error tracking, per-world MSPT commands
+
+All features integrate seamlessly with the Paper/Folia ecosystem while providing enhanced performance and functionality for production environments. Configuration is centralized in btccore.yml with sensible defaults that can be tuned for specific server requirements.
+
+For Advanced Slime Paper world management APIs, see `advancedslimepaper api.txt`.
+For Folia threading and scheduling APIs, see `folia api.txt`.
+For Paper API documentation, see `paper api 1.21.11.txt`.

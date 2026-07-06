@@ -1,0 +1,1085 @@
+# BlueMapAPI
+
+BlueMapAPI is a comprehensive Java API library that enables developers to programmatically interact with BlueMap, a powerful Minecraft mapping and rendering plugin. The API provides interfaces for creating and managing interactive map markers, controlling map rendering operations, managing web assets, and customizing the map's web interface. Built for Java 21, it leverages modern Java features while maintaining clean, intuitive interfaces for plugin developers.
+
+The API follows a singleton pattern with an event-driven lifecycle system, allowing plugins to register callbacks that execute when BlueMap becomes available or shuts down. It supports five distinct marker types (POI, HTML, Shape, Extrude, Line), complete render queue management, asset storage per map, and full JSON serialization through Gson integration. The library is designed with thread safety in mind, enabling asynchronous operations without additional synchronization concerns.
+
+## Getting the API Instance
+
+Access the BlueMapAPI singleton instance and register lifecycle callbacks.
+
+The API uses a singleton pattern with Optional return types to handle cases where BlueMap is not yet loaded. The onEnable and onDisable methods allow plugins to register callbacks that execute during BlueMap's lifecycle, ensuring proper initialization and cleanup.
+
+```java
+import de.bluecolored.bluemap.api.BlueMapAPI;
+import de.bluecolored.bluemap.api.BlueMapMap;
+
+public class MyPlugin {
+    private BlueMapAPI blueMapAPI;
+
+    public void onEnable() {
+        // Register a callback for when BlueMap becomes available
+        BlueMapAPI.onEnable(api -> {
+            this.blueMapAPI = api;
+            System.out.println("BlueMap API is now available!");
+
+            // Access available maps
+            api.getMaps().forEach(map -> {
+                System.out.println("Found map: " + map.getName() + " (ID: " + map.getId() + ")");
+            });
+
+            // Access worlds
+            api.getWorlds().forEach(world -> {
+                System.out.println("World ID: " + world.getId());
+            });
+        });
+
+        // Register cleanup callback
+        BlueMapAPI.onDisable(api -> {
+            System.out.println("BlueMap is shutting down");
+            this.blueMapAPI = null;
+        });
+
+        // Alternatively, check if API is already available
+        BlueMapAPI.getInstance().ifPresent(api -> {
+            System.out.println("API already loaded");
+        });
+    }
+}
+```
+
+## Creating POI Markers
+
+Create point-of-interest markers with custom icons and distance-based visibility.
+
+POI markers are ideal for marking specific locations on the map with custom icons. They support distance-based rendering, HTML labels, custom icons, and anchor point positioning. The builder pattern makes configuration intuitive and type-safe.
+
+```java
+import de.bluecolored.bluemap.api.markers.POIMarker;
+import de.bluecolored.bluemap.api.markers.MarkerSet;
+import com.flowpowered.math.vector.Vector2i;
+
+BlueMapAPI.onEnable(api -> {
+    // Create a POI marker with custom icon
+    POIMarker townHall = POIMarker.builder()
+        .label("Town Hall")
+        .position(100.5, 64.0, -200.75)  // x, y, z coordinates
+        .icon("assets/town_hall.svg", new Vector2i(25, 45))  // custom icon with anchor point
+        .minDistance(100)   // Hide when closer than 100 blocks
+        .maxDistance(5000)  // Hide when farther than 5000 blocks
+        .build();
+
+    // Create a simple marker with default icon
+    POIMarker spawnPoint = POIMarker.builder()
+        .label("<b>Spawn Point</b>")  // HTML formatting supported
+        .position(0, 70, 0)
+        .maxDistance(10000)
+        .build();
+
+    // Create a marker set to organize markers
+    MarkerSet landmarks = MarkerSet.builder()
+        .label("Landmarks")
+        .toggleable(true)       // Users can toggle visibility
+        .defaultHidden(false)   // Visible by default
+        .build();
+
+    // Add markers to the set
+    landmarks.put("town-hall", townHall);
+    landmarks.put("spawn", spawnPoint);
+
+    // Add marker set to a map
+    api.getMap("world").ifPresent(map -> {
+        map.getMarkerSets().put("landmarks", landmarks);
+        System.out.println("Added landmark markers to map: " + map.getName());
+    });
+});
+```
+
+## Creating Shape Markers
+
+Create 2D polygon shapes on the map with customizable colors and fill.
+
+Shape markers render flat polygons at a specified Y coordinate. They support line colors, fill colors with transparency, holes (for donut shapes), and configurable line width. Perfect for marking territories, zones, or areas of interest.
+
+```java
+import de.bluecolored.bluemap.api.markers.ShapeMarker;
+import de.bluecolored.bluemap.api.math.Shape;
+import de.bluecolored.bluemap.api.math.Color;
+import com.flowpowered.math.vector.Vector2d;
+import com.flowpowered.math.vector.Vector3d;
+
+BlueMapAPI.onEnable(api -> {
+    // Create a rectangular territory
+    Shape rectangle = Shape.createRect(
+        new Vector2d(0, 0),
+        new Vector2d(100, 50)
+    );
+
+    ShapeMarker territory = ShapeMarker.builder()
+        .label("Protected Zone")
+        .position(new Vector3d(0, 64, 0))  // Center position
+        .shape(rectangle, 64)  // Shape and Y coordinate
+        .lineColor(new Color(255, 0, 0))  // Red border
+        .fillColor(new Color(255, 0, 0, 0.3f))  // Red fill at 30% opacity
+        .lineWidth(2)
+        .depthTestEnabled(false)  // Show through terrain
+        .build();
+
+    // Create a circular zone
+    Shape circle = Shape.createCircle(
+        new Vector2d(0, 0),
+        50.0,  // radius
+        32     // number of points (smoothness)
+    );
+
+    ShapeMarker spawnZone = ShapeMarker.builder()
+        .label("Spawn Area")
+        .position(new Vector3d(0, 65, 0))
+        .shape(circle, 65)
+        .lineColor(new Color("#00FF00"))  // CSS color string
+        .fillColor(new Color(0x4000FF00))  // ARGB format
+        .detail("Safe zone - no PvP allowed")
+        .build();
+
+    // Create a shape with a hole
+    Shape outer = Shape.createCircle(new Vector2d(0, 0), 100, 32);
+    Shape hole = Shape.createCircle(new Vector2d(0, 0), 50, 32);
+
+    ShapeMarker donut = ShapeMarker.builder()
+        .label("Ring Road")
+        .position(new Vector3d(500, 64, 500))
+        .shape(outer, 64)
+        .holes(hole)
+        .lineColor(new Color(128, 128, 128))
+        .fillColor(new Color(128, 128, 128, 0.5f))
+        .build();
+
+    // Add to marker set
+    MarkerSet zones = MarkerSet.builder()
+        .label("Protected Zones")
+        .build();
+
+    zones.put("territory", territory);
+    zones.put("spawn-zone", spawnZone);
+    zones.put("ring-road", donut);
+
+    api.getMap("world").ifPresent(map ->
+        map.getMarkerSets().put("zones", zones)
+    );
+});
+```
+
+## Creating Extrude Markers
+
+Create 3D extruded shapes with configurable height.
+
+Extrude markers are similar to shape markers but extend vertically between minimum and maximum Y coordinates, creating volumetric regions. Ideal for visualizing 3D protected zones, buildings, or vertical territory boundaries.
+
+```java
+import de.bluecolored.bluemap.api.markers.ExtrudeMarker;
+import de.bluecolored.bluemap.api.math.Shape;
+import de.bluecolored.bluemap.api.math.Color;
+import com.flowpowered.math.vector.Vector2d;
+import com.flowpowered.math.vector.Vector3d;
+
+BlueMapAPI.onEnable(api -> {
+    // Create a 3D building outline
+    Shape buildingFootprint = Shape.createRect(
+        new Vector2d(-10, -10),
+        new Vector2d(10, 10)
+    );
+
+    ExtrudeMarker building = ExtrudeMarker.builder()
+        .label("Town Hall Building")
+        .position(new Vector3d(100, 64, -200))
+        .shape(buildingFootprint, 64, 80)  // from Y=64 to Y=80
+        .lineColor(new Color(139, 69, 19))  // Brown
+        .fillColor(new Color(139, 69, 19, 0.4f))
+        .lineWidth(3)
+        .detail("Main administrative building")
+        .link("https://example.com/buildings/town-hall", true)  // Opens in new tab
+        .depthTestEnabled(true)  // Respect terrain depth
+        .build();
+
+    // Create a no-fly zone
+    Shape airspaceShape = Shape.createCircle(new Vector2d(0, 0), 200, 48);
+
+    ExtrudeMarker noFlyZone = ExtrudeMarker.builder()
+        .label("No-Fly Zone")
+        .position(new Vector3d(0, 100, 0))
+        .shape(airspaceShape, 100, 256)  // From Y=100 to build limit
+        .lineColor(new Color(255, 0, 0))
+        .fillColor(new Color(255, 0, 0, 0.1f))
+        .minDistance(500)
+        .maxDistance(10000)
+        .build();
+
+    MarkerSet structures = MarkerSet.builder()
+        .label("3D Structures")
+        .build();
+
+    structures.put("town-hall-3d", building);
+    structures.put("no-fly", noFlyZone);
+
+    api.getMap("world").ifPresent(map ->
+        map.getMarkerSets().put("structures", structures)
+    );
+});
+```
+
+## Creating Line Markers
+
+Create 3D polylines connecting multiple points.
+
+Line markers render continuous lines through 3D space, perfect for marking paths, roads, railways, or flight routes. They support multiple points, configurable width and color, and optional depth testing.
+
+```java
+import de.bluecolored.bluemap.api.markers.LineMarker;
+import de.bluecolored.bluemap.api.math.Line;
+import de.bluecolored.bluemap.api.math.Color;
+import com.flowpowered.math.vector.Vector3d;
+
+BlueMapAPI.onEnable(api -> {
+    // Create a road connecting multiple locations
+    Line roadPath = new Line(
+        new Vector3d(0, 64, 0),
+        new Vector3d(50, 65, 100),
+        new Vector3d(100, 67, 150),
+        new Vector3d(200, 64, 200)
+    );
+
+    LineMarker mainRoad = LineMarker.builder()
+        .label("Main Road")
+        .line(roadPath)
+        .lineColor(new Color(255, 255, 0))  // Yellow
+        .lineWidth(5)
+        .depthTestEnabled(false)  // Show through terrain
+        .detail("Main trade route connecting villages")
+        .build();
+
+    // Create a railway line
+    Line railPath = new Line(
+        new Vector3d(-100, 64, -100),
+        new Vector3d(-50, 64, -50),
+        new Vector3d(0, 64, 0),
+        new Vector3d(50, 64, 50),
+        new Vector3d(100, 64, 100)
+    );
+
+    LineMarker railway = LineMarker.builder()
+        .label("Railway")
+        .line(railPath)
+        .lineColor(new Color(128, 128, 128))  // Gray
+        .lineWidth(3)
+        .minDistance(100)
+        .maxDistance(5000)
+        .build();
+
+    // Create a flight path
+    Line flightPath = new Line(
+        new Vector3d(0, 120, 0),
+        new Vector3d(100, 150, 100),
+        new Vector3d(200, 140, 200),
+        new Vector3d(300, 130, 300)
+    );
+
+    LineMarker flightRoute = LineMarker.builder()
+        .label("Flight Route Alpha")
+        .line(flightPath)
+        .lineColor(new Color(0, 191, 255))  // Sky blue
+        .lineWidth(2)
+        .depthTestEnabled(true)
+        .build();
+
+    MarkerSet routes = MarkerSet.builder()
+        .label("Travel Routes")
+        .toggleable(true)
+        .build();
+
+    routes.put("main-road", mainRoad);
+    routes.put("railway", railway);
+    routes.put("flight-alpha", flightRoute);
+
+    api.getMap("world").ifPresent(map ->
+        map.getMarkerSets().put("routes", routes)
+    );
+});
+```
+
+## Creating HTML Markers
+
+Create markers with custom HTML content.
+
+HTML markers allow complete customization of marker content using HTML, CSS, and JavaScript. They provide maximum flexibility for displaying complex information, interactive elements, or custom styling. Use with caution to prevent XSS vulnerabilities.
+
+```java
+import de.bluecolored.bluemap.api.markers.HtmlMarker;
+import com.flowpowered.math.vector.Vector2i;
+import com.flowpowered.math.vector.Vector3d;
+
+BlueMapAPI.onEnable(api -> {
+    // Create a marker with rich HTML content
+    String customHtml = """
+        <div style="background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; color: white;">
+            <h3 style="margin: 0 0 5px 0; color: #FFD700;">Premium Shop</h3>
+            <p style="margin: 5px 0;">Visit our shop for exclusive items!</p>
+            <ul style="margin: 5px 0; padding-left: 20px;">
+                <li>Rare weapons</li>
+                <li>Enchanted armor</li>
+                <li>Building materials</li>
+            </ul>
+            <button onclick="alert('Shop clicked!')">Visit Shop</button>
+        </div>
+        """;
+
+    HtmlMarker shopMarker = HtmlMarker.builder()
+        .label("Premium Shop")
+        .position(new Vector3d(250, 64, -300))
+        .html(customHtml)
+        .anchor(new Vector2i(0, 0))  // Anchor point for positioning
+        .maxDistance(3000)
+        .build();
+
+    // Create a simple info marker
+    String infoHtml = """
+        <div class="custom-marker">
+            <img src="assets/info-icon.png" width="32" height="32">
+            <span>Important Information</span>
+        </div>
+        """;
+
+    HtmlMarker infoMarker = HtmlMarker.builder()
+        .label("Server Info")
+        .position(new Vector3d(0, 70, 0))
+        .html(infoHtml)
+        .styleClasses("info-marker", "animated")  // Custom CSS classes
+        .build();
+
+    // Create a player stats display
+    String statsHtml = """
+        <div style="font-family: monospace; background: #2C3E50; color: #ECF0F1; padding: 15px; border: 2px solid #3498DB;">
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Player Base Stats</div>
+            <div>Active Players: <span style="color: #2ECC71;">42</span></div>
+            <div>Total Playtime: <span style="color: #F39C12;">1,234h</span></div>
+            <div>Buildings: <span style="color: #E74C3C;">87</span></div>
+        </div>
+        """;
+
+    HtmlMarker statsMarker = HtmlMarker.builder()
+        .label("Player Base")
+        .position(new Vector3d(-500, 65, 400))
+        .html(statsHtml)
+        .anchor(new Vector2i(10, 10))
+        .minDistance(200)
+        .maxDistance(8000)
+        .build();
+
+    MarkerSet customMarkers = MarkerSet.builder()
+        .label("Custom HTML Markers")
+        .build();
+
+    customMarkers.put("shop", shopMarker);
+    customMarkers.put("info", infoMarker);
+    customMarkers.put("stats", statsMarker);
+
+    api.getMap("world").ifPresent(map ->
+        map.getMarkerSets().put("custom", customMarkers)
+    );
+});
+```
+
+## Controlling Map Rendering
+
+Schedule map updates, manage render queue, and control rendering operations.
+
+The RenderManager provides fine-grained control over BlueMap's rendering operations. You can schedule full map updates, partial region updates, purge operations, and manage render threads dynamically based on server load.
+
+```java
+import de.bluecolored.bluemap.api.BlueMapAPI;
+import de.bluecolored.bluemap.api.BlueMapMap;
+import de.bluecolored.bluemap.api.RenderManager;
+import com.flowpowered.math.vector.Vector2i;
+import java.util.Arrays;
+import java.util.HashSet;
+
+BlueMapAPI.onEnable(api -> {
+    RenderManager renderManager = api.getRenderManager();
+
+    // Check render status
+    System.out.println("Rendering active: " + renderManager.isRunning());
+    System.out.println("Queue size: " + renderManager.renderQueueSize());
+    System.out.println("Render threads: " + renderManager.renderThreadCount());
+
+    // Schedule a full map update
+    api.getMap("world").ifPresent(map -> {
+        boolean scheduled = renderManager.scheduleMapUpdateTask(map, false);
+        if (scheduled) {
+            System.out.println("Scheduled update for map: " + map.getName());
+        } else {
+            System.out.println("Update already in queue");
+        }
+    });
+
+    // Force a map re-render (ignores cache)
+    api.getMap("world_nether").ifPresent(map -> {
+        renderManager.scheduleMapUpdateTask(map, true);  // force = true
+        System.out.println("Forced re-render of nether map");
+    });
+
+    // Update specific regions only
+    api.getMap("world").ifPresent(map -> {
+        // Region coordinates (not block coordinates)
+        HashSet<Vector2i> regions = new HashSet<>(Arrays.asList(
+            new Vector2i(0, 0),
+            new Vector2i(0, 1),
+            new Vector2i(1, 0),
+            new Vector2i(1, 1)
+        ));
+
+        boolean scheduled = renderManager.scheduleMapUpdateTask(map, regions, false);
+        System.out.println("Scheduled partial update: " + scheduled);
+    });
+
+    // Purge and rebuild a map completely
+    api.getMap("world_the_end").ifPresent(map -> {
+        boolean scheduled = renderManager.scheduleMapPurgeTask(map);
+        if (scheduled) {
+            System.out.println("Map purge scheduled - all tiles will be deleted and regenerated");
+        }
+    });
+
+    // Dynamically adjust render threads based on server load
+    if (isServerBusy()) {
+        renderManager.stop();
+        System.out.println("Stopped rendering - server is busy");
+    } else {
+        renderManager.start(2);  // Start with 2 render threads
+        System.out.println("Rendering started with 2 threads");
+    }
+
+    // Monitor render queue
+    new Thread(() -> {
+        while (renderManager.isRunning()) {
+            int queueSize = renderManager.renderQueueSize();
+            if (queueSize > 100) {
+                System.out.println("Warning: Large render queue: " + queueSize);
+            }
+            try {
+                Thread.sleep(30000);  // Check every 30 seconds
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+    }).start();
+});
+
+private static boolean isServerBusy() {
+    // Implementation depends on your platform
+    return false;
+}
+```
+
+## Managing Assets
+
+Upload, retrieve, and manage custom assets for map markers.
+
+Each BlueMap map has its own asset storage for custom images, icons, and other files. Assets are automatically served through the web app with proper MIME types and can be referenced in markers by their generated URLs.
+
+```java
+import de.bluecolored.bluemap.api.AssetStorage;
+import de.bluecolored.bluemap.api.BlueMapMap;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+
+BlueMapAPI.onEnable(api -> {
+    api.getMap("world").ifPresent(map -> {
+        AssetStorage storage = map.getAssetStorage();
+
+        try {
+            // Upload a custom marker icon
+            Path iconPath = Path.of("plugins/MyPlugin/icons/custom_marker.png");
+            if (Files.exists(iconPath)) {
+                try (InputStream input = Files.newInputStream(iconPath);
+                     OutputStream output = storage.writeAsset("custom_marker.png")) {
+                    input.transferTo(output);
+                    System.out.println("Uploaded custom marker icon");
+                }
+            }
+
+            // Generate and upload a dynamic image
+            BufferedImage generatedImage = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+            for (int x = 0; x < 64; x++) {
+                for (int y = 0; y < 64; y++) {
+                    int color = (x * 4) << 16 | (y * 4) << 8 | 128;  // Gradient
+                    generatedImage.setRGB(x, y, color | 0xFF000000);
+                }
+            }
+
+            try (OutputStream output = storage.writeAsset("generated_icon.png")) {
+                ImageIO.write(generatedImage, "png", output);
+                System.out.println("Generated and uploaded dynamic icon");
+            }
+
+            // Get the URL to use in markers
+            String iconUrl = storage.getAssetUrl("custom_marker.png");
+            System.out.println("Asset URL: " + iconUrl);
+
+            // Check if asset exists
+            if (storage.assetExists("custom_marker.png")) {
+                System.out.println("Asset exists in storage");
+
+                // Read asset data
+                storage.readAsset("custom_marker.png").ifPresent(input -> {
+                    try {
+                        byte[] data = input.readAllBytes();
+                        System.out.println("Asset size: " + data.length + " bytes");
+                        input.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+
+            // Upload JSON data for markers
+            String markerData = """
+                {
+                    "name": "Custom Location",
+                    "description": "A special place",
+                    "coordinates": [100, 64, 200]
+                }
+                """;
+
+            try (OutputStream output = storage.writeAsset("location_data.json")) {
+                output.write(markerData.getBytes());
+            }
+
+            // Delete old assets
+            if (storage.assetExists("old_icon.png")) {
+                storage.deleteAsset("old_icon.png");
+                System.out.println("Deleted old asset");
+            }
+
+        } catch (IOException e) {
+            System.err.println("Asset operation failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+    });
+});
+```
+
+## Customizing the Web App
+
+Register custom CSS styles and JavaScript files, control player visibility.
+
+The WebApp interface allows customization of the web-based map interface by registering custom stylesheets and scripts. You can also control individual player marker visibility and access the web root directory for advanced customizations.
+
+```java
+import de.bluecolored.bluemap.api.WebApp;
+import java.util.UUID;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+BlueMapAPI.onEnable(api -> {
+    WebApp webApp = api.getWebApp();
+
+    // Register custom CSS for marker styling
+    webApp.registerStyle("assets/custom_markers.css");
+
+    // Register custom JavaScript for interactive features
+    webApp.registerScript("assets/custom_features.js");
+
+    // Multiple style registrations
+    webApp.registerStyle("assets/theme_dark.css");
+    webApp.registerStyle("assets/animations.css");
+    webApp.registerScript("assets/marker_clustering.js");
+    webApp.registerScript("assets/search_enhancement.js");
+
+    System.out.println("Registered custom web resources");
+
+    // Control player marker visibility
+    UUID playerUuid = UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5");
+
+    // Hide a specific player's marker
+    webApp.setPlayerVisibility(playerUuid, false);
+    System.out.println("Player marker hidden");
+
+    // Check player visibility
+    boolean isVisible = webApp.getPlayerVisibility(playerUuid);
+    System.out.println("Player visibility: " + isVisible);
+
+    // Show player marker again
+    webApp.setPlayerVisibility(playerUuid, true);
+
+    // Hide all staff members (example)
+    getStaffUuids().forEach(uuid -> webApp.setPlayerVisibility(uuid, false));
+
+    // Access web root for advanced customization
+    Path webRoot = webApp.getWebRoot();
+    System.out.println("Web root: " + webRoot);
+
+    try {
+        // Create a custom HTML page
+        Path customPage = webRoot.resolve("custom_info.html");
+        String html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Server Info</title>
+                <link rel="stylesheet" href="assets/custom_style.css">
+            </head>
+            <body>
+                <h1>Welcome to Our Server</h1>
+                <p>View the live map below!</p>
+                <script src="assets/custom_script.js"></script>
+            </body>
+            </html>
+            """;
+        Files.writeString(customPage, html);
+        System.out.println("Created custom page at: " + customPage);
+
+    } catch (IOException e) {
+        System.err.println("Failed to create custom page: " + e.getMessage());
+    }
+});
+
+private static java.util.List<UUID> getStaffUuids() {
+    // Implementation depends on your platform
+    return java.util.Arrays.asList(
+        UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5")
+    );
+}
+```
+
+## Serializing and Persisting Markers
+
+Save and load markers using JSON serialization with Gson.
+
+Markers are not automatically persistent and must be recreated on each server start. Use the provided MarkerGson instance to serialize marker sets to JSON files for persistence. The Gson instance includes custom adapters for all BlueMapAPI types.
+
+```java
+import de.bluecolored.bluemap.api.gson.MarkerGson;
+import de.bluecolored.bluemap.api.markers.*;
+import com.google.gson.Gson;
+import java.io.*;
+import java.nio.file.Path;
+
+public class MarkerPersistence {
+    private static final Gson GSON = MarkerGson.INSTANCE;
+    private static final Path MARKER_FILE = Path.of("plugins/MyPlugin/markers.json");
+
+    public static void saveMarkers(MarkerSet markerSet) {
+        try (FileWriter writer = new FileWriter(MARKER_FILE.toFile())) {
+            GSON.toJson(markerSet, writer);
+            System.out.println("Saved markers to " + MARKER_FILE);
+        } catch (IOException e) {
+            System.err.println("Failed to save markers: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static MarkerSet loadMarkers() {
+        if (!MARKER_FILE.toFile().exists()) {
+            System.out.println("No marker file found, creating new marker set");
+            return MarkerSet.builder()
+                .label("My Markers")
+                .build();
+        }
+
+        try (FileReader reader = new FileReader(MARKER_FILE.toFile())) {
+            MarkerSet markerSet = GSON.fromJson(reader, MarkerSet.class);
+            System.out.println("Loaded " + markerSet.getMarkers().size() + " markers");
+            return markerSet;
+        } catch (IOException e) {
+            System.err.println("Failed to load markers: " + e.getMessage());
+            e.printStackTrace();
+            return MarkerSet.builder().label("My Markers").build();
+        }
+    }
+
+    public static void example() {
+        BlueMapAPI.onEnable(api -> {
+            // Load existing markers from disk
+            MarkerSet persistentMarkers = loadMarkers();
+
+            // Add new markers
+            POIMarker newMarker = POIMarker.builder()
+                .label("New Location")
+                .position(100, 64, 100)
+                .build();
+
+            persistentMarkers.put("new-loc-" + System.currentTimeMillis(), newMarker);
+
+            // Save back to disk
+            saveMarkers(persistentMarkers);
+
+            // Apply to map
+            api.getMap("world").ifPresent(map ->
+                map.getMarkerSets().put("persistent", persistentMarkers)
+            );
+        });
+
+        // Save markers before shutdown
+        BlueMapAPI.onDisable(api -> {
+            api.getMap("world").ifPresent(map -> {
+                MarkerSet markerSet = map.getMarkerSets().get("persistent");
+                if (markerSet != null) {
+                    saveMarkers(markerSet);
+                }
+            });
+        });
+    }
+
+    // Serialize individual markers for storage
+    public static String serializeMarker(Marker marker) {
+        return GSON.toJson(marker);
+    }
+
+    // Deserialize marker from JSON
+    public static POIMarker deserializePOIMarker(String json) {
+        return GSON.fromJson(json, POIMarker.class);
+    }
+
+    // Export markers to pretty JSON
+    public static void exportMarkersPretty(MarkerSet markerSet, Path outputPath) {
+        try (FileWriter writer = new FileWriter(outputPath.toFile())) {
+            com.google.gson.GsonBuilder builder = new com.google.gson.GsonBuilder();
+            builder.setPrettyPrinting();
+            builder.registerTypeHierarchyAdapter(
+                com.flowpowered.math.vector.Vector2d.class,
+                MarkerGson.INSTANCE.getAdapter(com.flowpowered.math.vector.Vector2d.class)
+            );
+            Gson prettyGson = builder.create();
+            prettyGson.toJson(markerSet, writer);
+            System.out.println("Exported markers to " + outputPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+## Working with Worlds and Maps
+
+Access Minecraft worlds and their associated BlueMap rendered maps.
+
+BlueMapWorld represents a Minecraft world dimension, while BlueMapMap represents a specific rendered map view. A single world can have multiple maps with different settings, and each map can be independently controlled and customized.
+
+```java
+import de.bluecolored.bluemap.api.*;
+import com.flowpowered.math.vector.Vector2i;
+import java.util.Collection;
+import java.util.Optional;
+
+BlueMapAPI.onEnable(api -> {
+    // List all available worlds
+    Collection<BlueMapWorld> worlds = api.getWorlds();
+    System.out.println("Total worlds: " + worlds.size());
+
+    worlds.forEach(world -> {
+        System.out.println("World ID: " + world.getId());
+        System.out.println("  Maps in this world:");
+
+        world.getMaps().forEach(map -> {
+            System.out.println("    - " + map.getName() + " (ID: " + map.getId() + ")");
+            System.out.println("      Tile size: " + map.getTileSize());
+            System.out.println("      Tile offset: " + map.getTileOffset());
+            System.out.println("      Frozen: " + map.isFrozen());
+            System.out.println("      Marker sets: " + map.getMarkerSets().size());
+        });
+    });
+
+    // Get a specific map by ID
+    Optional<BlueMapMap> overworldMap = api.getMap("world");
+    overworldMap.ifPresent(map -> {
+        System.out.println("Found overworld map: " + map.getName());
+
+        // Freeze/unfreeze a map (prevents rendering)
+        map.setFrozen(true);
+        System.out.println("Map frozen - rendering disabled");
+
+        // Later, unfreeze
+        map.setFrozen(false);
+        System.out.println("Map unfrozen - rendering enabled");
+    });
+
+    // Get world by platform-specific world object (Bukkit example)
+    // org.bukkit.World bukkitWorld = ...;
+    // Optional<BlueMapWorld> blueWorld = api.getWorld(bukkitWorld);
+
+    // Convert block coordinates to tile coordinates
+    api.getMap("world").ifPresent(map -> {
+        double blockX = 1234.5;
+        double blockZ = -5678.9;
+
+        Vector2i tile = map.posToTile(blockX, blockZ);
+        System.out.println("Block position (" + blockX + ", " + blockZ +
+                         ") is in tile (" + tile.getX() + ", " + tile.getY() + ")");
+
+        // Useful for scheduling specific tile updates
+        Vector2i tile1 = map.posToTile(0, 0);
+        Vector2i tile2 = map.posToTile(100, 100);
+        Vector2i tile3 = map.posToTile(-100, -100);
+
+        java.util.Set<Vector2i> tilesToUpdate = new java.util.HashSet<>();
+        tilesToUpdate.add(tile1);
+        tilesToUpdate.add(tile2);
+        tilesToUpdate.add(tile3);
+
+        api.getRenderManager().scheduleMapUpdateTask(map, tilesToUpdate, false);
+        System.out.println("Scheduled update for " + tilesToUpdate.size() + " tiles");
+    });
+
+    // Iterate through all maps across all worlds
+    Collection<BlueMapMap> allMaps = api.getMaps();
+    System.out.println("Total maps across all worlds: " + allMaps.size());
+
+    allMaps.forEach(map -> {
+        System.out.println("Map: " + map.getName());
+        System.out.println("  World: " + map.getWorld().getId());
+        System.out.println("  Asset storage: " + map.getAssetStorage());
+    });
+});
+```
+
+## Complete Plugin Example
+
+Full example plugin integrating multiple API features with lifecycle management.
+
+This comprehensive example demonstrates a complete plugin that creates markers, manages rendering, persists data, and handles the full BlueMap lifecycle. It showcases best practices for API usage including error handling, resource management, and async operations.
+
+```java
+import de.bluecolored.bluemap.api.*;
+import de.bluecolored.bluemap.api.markers.*;
+import de.bluecolored.bluemap.api.math.*;
+import de.bluecolored.bluemap.api.gson.MarkerGson;
+import com.flowpowered.math.vector.Vector2d;
+import com.flowpowered.math.vector.Vector3d;
+import com.google.gson.Gson;
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import java.util.concurrent.*;
+
+public class MyBlueMapPlugin {
+    private BlueMapAPI blueMapAPI;
+    private final Path dataFolder = Path.of("plugins/MyPlugin");
+    private final Path markerFile = dataFolder.resolve("markers.json");
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private MarkerSet mainMarkerSet;
+
+    public void onEnable() {
+        try {
+            Files.createDirectories(dataFolder);
+        } catch (IOException e) {
+            System.err.println("Failed to create data folder: " + e.getMessage());
+        }
+
+        // Register API callbacks
+        BlueMapAPI.onEnable(this::onBlueMapEnable);
+        BlueMapAPI.onDisable(this::onBlueMapDisable);
+
+        System.out.println("MyBlueMapPlugin enabled");
+    }
+
+    private void onBlueMapEnable(BlueMapAPI api) {
+        this.blueMapAPI = api;
+        System.out.println("BlueMap API available - initializing...");
+
+        // Load or create markers
+        mainMarkerSet = loadMarkers();
+
+        // Set up markers on all maps
+        api.getMaps().forEach(map -> {
+            map.getMarkerSets().put("myplugin", mainMarkerSet);
+            System.out.println("Added markers to map: " + map.getName());
+        });
+
+        // Create example markers
+        createExampleMarkers();
+
+        // Upload custom assets
+        uploadCustomAssets();
+
+        // Customize web app
+        customizeWebApp();
+
+        // Schedule periodic tasks
+        schedulePeriodicTasks();
+
+        // Start initial render
+        api.getMaps().forEach(map -> {
+            api.getRenderManager().scheduleMapUpdateTask(map, false);
+        });
+
+        System.out.println("BlueMap integration complete");
+    }
+
+    private void onBlueMapDisable(BlueMapAPI api) {
+        System.out.println("BlueMap shutting down - saving data...");
+
+        // Save markers before shutdown
+        saveMarkers(mainMarkerSet);
+
+        // Cancel scheduled tasks
+        scheduler.shutdown();
+
+        this.blueMapAPI = null;
+        System.out.println("BlueMap integration disabled");
+    }
+
+    private MarkerSet loadMarkers() {
+        if (Files.exists(markerFile)) {
+            try (FileReader reader = new FileReader(markerFile.toFile())) {
+                MarkerSet set = MarkerGson.INSTANCE.fromJson(reader, MarkerSet.class);
+                System.out.println("Loaded " + set.getMarkers().size() + " markers");
+                return set;
+            } catch (IOException e) {
+                System.err.println("Failed to load markers: " + e.getMessage());
+            }
+        }
+
+        return MarkerSet.builder()
+            .label("My Plugin Markers")
+            .toggleable(true)
+            .defaultHidden(false)
+            .build();
+    }
+
+    private void saveMarkers(MarkerSet markerSet) {
+        try (FileWriter writer = new FileWriter(markerFile.toFile())) {
+            MarkerGson.INSTANCE.toJson(markerSet, writer);
+            System.out.println("Saved markers");
+        } catch (IOException e) {
+            System.err.println("Failed to save markers: " + e.getMessage());
+        }
+    }
+
+    private void createExampleMarkers() {
+        // POI marker
+        POIMarker spawn = POIMarker.builder()
+            .label("Spawn Point")
+            .position(0, 70, 0)
+            .icon("assets/spawn_icon.png", new com.flowpowered.math.vector.Vector2i(16, 32))
+            .maxDistance(10000)
+            .build();
+        mainMarkerSet.put("spawn", spawn);
+
+        // Territory shape
+        Shape territoryShape = Shape.createRect(
+            new Vector2d(-100, -100),
+            new Vector2d(100, 100)
+        );
+        ShapeMarker territory = ShapeMarker.builder()
+            .label("Protected Territory")
+            .position(new Vector3d(0, 64, 0))
+            .shape(territoryShape, 64)
+            .lineColor(new Color(255, 215, 0))
+            .fillColor(new Color(255, 215, 0, 0.3f))
+            .build();
+        mainMarkerSet.put("territory", territory);
+
+        // Path line
+        Line path = new Line(
+            new Vector3d(0, 64, 0),
+            new Vector3d(100, 65, 100),
+            new Vector3d(200, 64, 150)
+        );
+        LineMarker pathMarker = LineMarker.builder()
+            .label("Main Path")
+            .line(path)
+            .lineColor(new Color(255, 255, 0))
+            .lineWidth(4)
+            .build();
+        mainMarkerSet.put("path", pathMarker);
+
+        System.out.println("Created example markers");
+    }
+
+    private void uploadCustomAssets() {
+        if (blueMapAPI == null) return;
+
+        blueMapAPI.getMap("world").ifPresent(map -> {
+            AssetStorage storage = map.getAssetStorage();
+
+            try {
+                // Upload custom icon
+                Path iconSource = dataFolder.resolve("spawn_icon.png");
+                if (Files.exists(iconSource)) {
+                    try (InputStream input = Files.newInputStream(iconSource);
+                         OutputStream output = storage.writeAsset("spawn_icon.png")) {
+                        input.transferTo(output);
+                        System.out.println("Uploaded spawn icon");
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to upload assets: " + e.getMessage());
+            }
+        });
+    }
+
+    private void customizeWebApp() {
+        if (blueMapAPI == null) return;
+
+        WebApp webApp = blueMapAPI.getWebApp();
+        webApp.registerStyle("assets/myplugin_styles.css");
+        webApp.registerScript("assets/myplugin_features.js");
+
+        System.out.println("Registered web app customizations");
+    }
+
+    private void schedulePeriodicTasks() {
+        // Save markers every 5 minutes
+        scheduler.scheduleAtFixedRate(() -> {
+            if (mainMarkerSet != null) {
+                saveMarkers(mainMarkerSet);
+            }
+        }, 5, 5, TimeUnit.MINUTES);
+
+        // Update map every hour
+        scheduler.scheduleAtFixedRate(() -> {
+            if (blueMapAPI != null) {
+                blueMapAPI.getMaps().forEach(map -> {
+                    blueMapAPI.getRenderManager().scheduleMapUpdateTask(map, false);
+                });
+                System.out.println("Scheduled periodic map update");
+            }
+        }, 1, 1, TimeUnit.HOURS);
+    }
+
+    // API method for other plugins to add markers
+    public void addMarker(String id, Marker marker) {
+        if (mainMarkerSet != null) {
+            mainMarkerSet.put(id, marker);
+            saveMarkers(mainMarkerSet);
+            System.out.println("Added marker: " + id);
+        }
+    }
+
+    public void removeMarker(String id) {
+        if (mainMarkerSet != null) {
+            mainMarkerSet.getMarkers().remove(id);
+            saveMarkers(mainMarkerSet);
+            System.out.println("Removed marker: " + id);
+        }
+    }
+
+    public void onDisable() {
+        if (blueMapAPI != null) {
+            saveMarkers(mainMarkerSet);
+        }
+        scheduler.shutdown();
+        System.out.println("MyBlueMapPlugin disabled");
+    }
+}
+```
+
+## Summary
+
+BlueMapAPI provides a powerful and flexible framework for Minecraft server plugins to create rich, interactive web-based maps. The primary use cases include territory management systems that visualize claimed land with colored shapes, navigation aids with POI markers for shops and points of interest, event systems that dynamically create and remove markers for ongoing server events, and administrative tools that use HTML markers to display real-time server statistics. The marker system supports five distinct types optimized for different visualization needs, from simple points to complex 3D volumes, all with distance-based rendering for performance.
+
+Integration with existing plugins is straightforward through the singleton API pattern and lifecycle callbacks. Plugins register onEnable callbacks to initialize when BlueMap loads, use the builder pattern to construct markers fluently, leverage the provided Gson instance for JSON persistence across restarts, and utilize the asset storage system for custom icons and resources. The API is fully thread-safe, enabling asynchronous operations without additional synchronization. Advanced features include fine-grained render control for scheduling updates during low-load periods, web app customization with CSS and JavaScript, player marker visibility control for vanished staff members, and region-specific rendering updates for large maps. The comprehensive type system with shapes, lines, colors, and vectors ensures type safety and IDE support throughout development.
+

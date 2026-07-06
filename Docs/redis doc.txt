@@ -1,0 +1,1088 @@
+# Jedis - Redis Java Client
+
+Jedis is a high-performance Java client library for Redis, designed for simplicity and ease of use. It provides comprehensive support for all Redis commands and data structures, including strings, hashes, lists, sets, sorted sets, streams, and more. The library offers both standalone and cluster connection modes with built-in connection pooling, making it suitable for production environments. Jedis supports advanced Redis features including pipelining for performance optimization, transactions for atomic operations, and pub/sub for real-time messaging.
+
+The library has evolved significantly with version 5.0+, introducing modern client APIs (`RedisClient` and `RedisClusterClient`) that replace legacy connection pooling approaches. It includes native support for Redis modules such as RedisJSON for JSON document storage, RediSearch for full-text search and secondary indexing, and other specialized data structures. Jedis is thread-safe when used correctly, extensively tested, and actively maintained by Redis Ltd.
+
+## Basic Connection - Standalone Redis
+
+Create a connection to a standalone Redis server using the modern RedisClient API with automatic connection pooling.
+
+```java
+import redis.clients.jedis.RedisClient;
+
+// Simple connection to localhost
+RedisClient jedis = RedisClient.create();
+
+// Connection with host and port
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Connection with URI
+RedisClient jedis = RedisClient.create("redis://localhost:6379");
+
+// Connection with authentication
+RedisClient jedis = RedisClient.create("localhost", 6379, "username", "password");
+
+// Advanced configuration with builder
+RedisClient jedis = RedisClient.builder()
+    .hostAndPort("localhost", 6379)
+    .password("mypassword")
+    .database(0)
+    .connectionTimeoutMillis(2000)
+    .socketTimeoutMillis(2000)
+    .build();
+
+// Use the client
+jedis.set("mykey", "myvalue");
+String value = jedis.get("mykey");
+System.out.println(value); // Output: myvalue
+
+// Close when done
+jedis.close();
+```
+
+## Basic Connection - Redis Cluster
+
+Connect to a Redis Cluster deployment with automatic slot mapping and node discovery.
+
+```java
+import redis.clients.jedis.RedisClusterClient;
+import redis.clients.jedis.HostAndPort;
+import java.util.HashSet;
+import java.util.Set;
+
+// Create cluster node set
+Set<HostAndPort> nodes = new HashSet<>();
+nodes.add(new HostAndPort("127.0.0.1", 7379));
+nodes.add(new HostAndPort("127.0.0.1", 7380));
+nodes.add(new HostAndPort("127.0.0.1", 7381));
+
+// Simple cluster connection
+RedisClusterClient cluster = RedisClusterClient.create(nodes);
+
+// With authentication
+RedisClusterClient cluster = RedisClusterClient.create(nodes, "username", "password");
+
+// Advanced configuration with builder
+RedisClusterClient cluster = RedisClusterClient.builder()
+    .nodes(nodes)
+    .maxAttempts(5)
+    .connectionTimeoutMillis(2000)
+    .socketTimeoutMillis(2000)
+    .build();
+
+// Use the cluster client
+cluster.set("mykey", "myvalue");
+String value = cluster.get("mykey");
+
+// Close when done
+cluster.close();
+```
+
+## String Operations
+
+Perform basic string operations including SET, GET, increment, decrement, and atomic operations.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.params.SetParams;
+import redis.clients.jedis.params.GetExParams;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Basic SET/GET
+jedis.set("bike:1", "Process 134");
+String value = jedis.get("bike:1"); // "Process 134"
+
+// SET with expiration (EX = seconds)
+jedis.set("session:user1", "active", SetParams.setParams().ex(3600));
+
+// SET with expiration (PX = milliseconds)
+jedis.set("cache:key1", "data", SetParams.setParams().px(60000));
+
+// SET with NX (only if not exists)
+String result = jedis.set("bike:1", "new value", SetParams.setParams().nx());
+// Returns null if key already exists
+
+// SET with XX (only if exists)
+jedis.set("bike:1", "updated value", SetParams.setParams().xx());
+
+// GET with expiration (GETEX)
+String val = jedis.getEx("bike:1", GetExParams.getExParams().ex(300));
+
+// GET and DELETE atomically
+String deleted = jedis.getDel("bike:1");
+
+// Multiple SET
+jedis.mset("key1", "value1", "key2", "value2", "key3", "value3");
+
+// Multiple GET
+List<String> values = jedis.mget("key1", "key2", "key3");
+
+// Increment/Decrement operations
+jedis.set("counter", "10");
+long newValue = jedis.incr("counter"); // 11
+newValue = jedis.incrBy("counter", 5); // 16
+newValue = jedis.decr("counter"); // 15
+newValue = jedis.decrBy("counter", 3); // 12
+
+// Float increment
+jedis.set("temperature", "20.5");
+double temp = jedis.incrByFloat("temperature", 1.5); // 22.0
+
+// Append to string
+jedis.set("message", "Hello");
+jedis.append("message", " World"); // "Hello World"
+
+// String length
+long length = jedis.strlen("message"); // 11
+
+jedis.close();
+```
+
+## Hash Operations
+
+Work with Redis hashes for storing structured objects with field-value pairs.
+
+```java
+import redis.clients.jedis.RedisClient;
+import java.util.HashMap;
+import java.util.Map;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Set single field
+jedis.hset("user:1000", "name", "John Smith");
+jedis.hset("user:1000", "email", "john@example.com");
+jedis.hset("user:1000", "age", "30");
+
+// Set multiple fields at once
+Map<String, String> userMap = new HashMap<>();
+userMap.put("name", "Jane Doe");
+userMap.put("email", "jane@example.com");
+userMap.put("age", "28");
+userMap.put("country", "USA");
+jedis.hset("user:1001", userMap);
+
+// Get single field
+String name = jedis.hget("user:1000", "name"); // "John Smith"
+
+// Get multiple fields
+List<String> fields = jedis.hmget("user:1000", "name", "email", "age");
+// ["John Smith", "john@example.com", "30"]
+
+// Get all fields and values
+Map<String, String> user = jedis.hgetAll("user:1000");
+// {name=John Smith, email=john@example.com, age=30}
+
+// Check if field exists
+boolean exists = jedis.hexists("user:1000", "name"); // true
+
+// Delete field
+jedis.hdel("user:1000", "age");
+
+// Get all field names
+Set<String> keys = jedis.hkeys("user:1000"); // [name, email]
+
+// Get all values
+List<String> values = jedis.hvals("user:1000"); // [John Smith, john@example.com]
+
+// Get number of fields
+long count = jedis.hlen("user:1000"); // 2
+
+// Increment field value
+jedis.hset("user:1000", "visits", "0");
+long visits = jedis.hincrBy("user:1000", "visits", 1); // 1
+visits = jedis.hincrBy("user:1000", "visits", 5); // 6
+
+// Set only if field doesn't exist
+long result = jedis.hsetnx("user:1000", "name", "Different Name"); // 0 (field exists)
+result = jedis.hsetnx("user:1000", "phone", "555-1234"); // 1 (field created)
+
+jedis.close();
+```
+
+## List Operations
+
+Use Redis lists for queues, stacks, and ordered collections with push/pop operations.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.resps.KeyValue;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Push to right (append)
+jedis.rpush("queue:tasks", "task1", "task2", "task3");
+
+// Push to left (prepend)
+jedis.lpush("queue:tasks", "urgent_task");
+
+// List contents: [urgent_task, task1, task2, task3]
+
+// Get list length
+long length = jedis.llen("queue:tasks"); // 4
+
+// Get range of elements (0-based index, -1 = end)
+List<String> allTasks = jedis.lrange("queue:tasks", 0, -1);
+// [urgent_task, task1, task2, task3]
+
+List<String> firstTwo = jedis.lrange("queue:tasks", 0, 1);
+// [urgent_task, task1]
+
+// Get element by index
+String firstTask = jedis.lindex("queue:tasks", 0); // urgent_task
+String lastTask = jedis.lindex("queue:tasks", -1); // task3
+
+// Set element at index
+jedis.lset("queue:tasks", 1, "updated_task1");
+
+// Pop from right (remove and return last element)
+String task = jedis.rpop("queue:tasks"); // task3
+
+// Pop from left (remove and return first element)
+task = jedis.lpop("queue:tasks"); // urgent_task
+
+// Pop multiple elements
+jedis.rpush("numbers", "1", "2", "3", "4", "5");
+List<String> popped = jedis.lpop("numbers", 3); // [1, 2, 3]
+
+// Blocking pop (waits for element, timeout in seconds)
+KeyValue<String, String> result = jedis.blpop(5.0, "queue:tasks");
+if (result != null) {
+    System.out.println("Key: " + result.getKey()); // queue:tasks
+    System.out.println("Value: " + result.getValue()); // updated_task1
+}
+
+// Trim list to keep only specified range
+jedis.rpush("log", "entry1", "entry2", "entry3", "entry4", "entry5");
+jedis.ltrim("log", 0, 2); // Keep only first 3 elements
+// log now contains: [entry1, entry2, entry3]
+
+// Remove elements by value
+jedis.rpush("items", "apple", "banana", "apple", "cherry", "apple");
+jedis.lrem("items", 2, "apple"); // Remove first 2 occurrences of "apple"
+// items now contains: [banana, cherry, apple]
+
+// Find position of element
+jedis.rpush("fruits", "apple", "banana", "cherry", "banana");
+long pos = jedis.lpos("fruits", "banana"); // 1 (first occurrence)
+
+jedis.close();
+```
+
+## Set Operations
+
+Perform set operations including add, remove, union, intersection, and difference.
+
+```java
+import redis.clients.jedis.RedisClient;
+import java.util.Set;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Add members to set
+jedis.sadd("tags:post1", "redis", "database", "nosql", "cache");
+jedis.sadd("tags:post2", "redis", "java", "client");
+jedis.sadd("tags:post3", "database", "sql", "mysql");
+
+// Get all members
+Set<String> tags = jedis.smembers("tags:post1");
+// [redis, database, nosql, cache]
+
+// Get set size
+long count = jedis.scard("tags:post1"); // 4
+
+// Check membership
+boolean exists = jedis.sismember("tags:post1", "redis"); // true
+exists = jedis.sismember("tags:post1", "python"); // false
+
+// Check multiple members
+List<Boolean> results = jedis.smismember("tags:post1", "redis", "python", "cache");
+// [true, false, true]
+
+// Remove members
+jedis.srem("tags:post1", "cache"); // Remove "cache"
+
+// Pop random member (remove and return)
+String randomTag = jedis.spop("tags:post1"); // e.g., "redis"
+
+// Get random member without removing
+randomTag = jedis.srandmember("tags:post1");
+
+// Get multiple random members
+List<String> randomTags = jedis.srandmember("tags:post1", 2);
+
+// Set intersection (common members)
+Set<String> common = jedis.sinter("tags:post1", "tags:post2");
+// [redis, database]
+
+// Store intersection result
+jedis.sinterstore("tags:common", "tags:post1", "tags:post2");
+
+// Set union (all unique members)
+Set<String> all = jedis.sunion("tags:post1", "tags:post2");
+// [redis, database, nosql, java, client]
+
+// Store union result
+jedis.sunionstore("tags:all", "tags:post1", "tags:post2", "tags:post3");
+
+// Set difference (members in first set but not in others)
+Set<String> diff = jedis.sdiff("tags:post1", "tags:post2");
+// [nosql] (assuming cache was removed earlier)
+
+// Store difference result
+jedis.sdiffstore("tags:unique", "tags:post1", "tags:post2");
+
+// Move member between sets
+jedis.smove("tags:post1", "tags:post2", "database");
+
+jedis.close();
+```
+
+## Sorted Set Operations
+
+Work with sorted sets for leaderboards, priority queues, and ranked data.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.resps.Tuple;
+import redis.clients.jedis.params.ZAddParams;
+import java.util.HashMap;
+import java.util.Map;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Add members with scores
+jedis.zadd("leaderboard", 100, "player1");
+jedis.zadd("leaderboard", 250, "player2");
+jedis.zadd("leaderboard", 175, "player3");
+
+// Add multiple members at once
+Map<String, Double> scores = new HashMap<>();
+scores.put("player4", 300.0);
+scores.put("player5", 150.0);
+scores.put("player6", 200.0);
+jedis.zadd("leaderboard", scores);
+
+// Add with options (NX = only if not exists, GT = only if new score is greater)
+jedis.zadd("leaderboard", 280, "player2", ZAddParams.zAddParams().gt());
+// Updates player2's score to 280 (greater than 250)
+
+// Increment score
+double newScore = jedis.zincrby("leaderboard", 25, "player1"); // 125.0
+
+// Get score of member
+Double score = jedis.zscore("leaderboard", "player2"); // 280.0
+
+// Get scores of multiple members
+List<Double> memberScores = jedis.zmscore("leaderboard", "player1", "player2", "player5");
+// [125.0, 280.0, 150.0]
+
+// Get rank (0-based position, lowest score first)
+Long rank = jedis.zrank("leaderboard", "player1"); // 0 (lowest score)
+
+// Get reverse rank (highest score first)
+Long revRank = jedis.zrevrank("leaderboard", "player4"); // 0 (highest score)
+
+// Get sorted set size
+long count = jedis.zcard("leaderboard"); // 6
+
+// Get range by index (ascending order)
+List<String> bottom3 = jedis.zrange("leaderboard", 0, 2);
+// [player1, player5, player3]
+
+// Get range by index (descending order)
+List<String> top3 = jedis.zrevrange("leaderboard", 0, 2);
+// [player4, player2, player6]
+
+// Get range with scores
+List<Tuple> topWithScores = jedis.zrevrangeWithScores("leaderboard", 0, 2);
+for (Tuple tuple : topWithScores) {
+    System.out.println(tuple.getElement() + ": " + tuple.getScore());
+}
+// player4: 300.0
+// player2: 280.0
+// player6: 200.0
+
+// Get range by score
+List<String> midRange = jedis.zrangeByScore("leaderboard", 150, 250);
+// [player5, player3, player6]
+
+// Count members in score range
+long rangeCount = jedis.zcount("leaderboard", 150, 250); // 3
+
+// Remove member
+jedis.zrem("leaderboard", "player5");
+
+// Pop highest score members
+List<Tuple> highest = jedis.zpopmax("leaderboard", 2);
+// [(player4, 300.0), (player2, 280.0)]
+
+// Pop lowest score members
+List<Tuple> lowest = jedis.zpopmin("leaderboard", 1);
+// [(player1, 125.0)]
+
+jedis.close();
+```
+
+## Pipelining for Performance
+
+Execute multiple commands in a single round-trip to Redis for improved performance.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.AbstractPipeline;
+import redis.clients.jedis.Response;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Create pipeline
+try (AbstractPipeline pipe = jedis.pipelined()) {
+
+    // Queue multiple commands
+    for (int i = 0; i < 100; i++) {
+        pipe.set("key:" + i, "value:" + i);
+    }
+
+    // Execute all commands at once
+    pipe.sync();
+}
+
+// Pipeline with response capture
+try (AbstractPipeline pipe = jedis.pipelined()) {
+
+    // Store responses
+    Response<String> resp1 = pipe.get("key:0");
+    Response<String> resp50 = pipe.get("key:50");
+    Response<String> resp99 = pipe.get("key:99");
+
+    // Execute pipeline
+    pipe.sync();
+
+    // Access responses after sync
+    System.out.println(resp1.get()); // value:0
+    System.out.println(resp50.get()); // value:50
+    System.out.println(resp99.get()); // value:99
+}
+
+// Complex operations in pipeline
+try (AbstractPipeline pipe = jedis.pipelined()) {
+
+    Response<Long> sadd = pipe.sadd("users:online", "user1", "user2", "user3");
+    Response<Long> zadd = pipe.zadd("scores", 100, "player1");
+    Response<String> set = pipe.set("status", "active");
+    Response<Long> incr = pipe.incr("counter");
+
+    Map<String, String> hash = new HashMap<>();
+    hash.put("name", "Alice");
+    hash.put("age", "30");
+    Response<Long> hset = pipe.hset("user:1", hash);
+
+    pipe.sync();
+
+    System.out.println("Added to set: " + sadd.get()); // 3
+    System.out.println("Counter value: " + incr.get()); // depends on previous value
+    System.out.println("Hash fields set: " + hset.get()); // 2
+}
+
+jedis.close();
+```
+
+## Transactions for Atomic Operations
+
+Execute multiple commands atomically using MULTI/EXEC transactions with optional WATCH.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.AbstractTransaction;
+import redis.clients.jedis.Response;
+import java.util.List;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Basic transaction
+try (AbstractTransaction trans = jedis.multi()) {
+
+    trans.set("account:1:balance", "1000");
+    trans.set("account:2:balance", "500");
+    trans.incrBy("account:1:balance", -100);
+    trans.incrBy("account:2:balance", 100);
+
+    // Execute all commands atomically
+    List<Object> results = trans.exec();
+
+    System.out.println("Transaction completed with " + results.size() + " operations");
+}
+
+// Transaction with response capture
+try (AbstractTransaction trans = jedis.multi()) {
+
+    Response<String> set1 = trans.set("key1", "value1");
+    Response<Long> incr1 = trans.incr("counter");
+    Response<Long> sadd1 = trans.sadd("myset", "member1", "member2");
+
+    List<Object> results = trans.exec();
+
+    // Access responses after exec
+    System.out.println("Set result: " + set1.get()); // OK
+    System.out.println("Counter: " + incr1.get()); // incremented value
+    System.out.println("Set members added: " + sadd1.get()); // 2
+}
+
+// Transaction with WATCH for optimistic locking
+jedis.set("balance", "100");
+
+try (AbstractTransaction trans = jedis.transaction(false)) {
+
+    // Watch key for changes
+    trans.watch("balance");
+
+    // Read current value
+    String currentBalance = jedis.get("balance");
+    int balance = Integer.parseInt(currentBalance);
+
+    if (balance >= 50) {
+        // Start transaction
+        trans.multi();
+
+        // Queue operations
+        trans.decrBy("balance", 50);
+        trans.set("last_withdrawal", "50");
+
+        // Execute transaction
+        List<Object> results = trans.exec();
+
+        if (results != null) {
+            System.out.println("Withdrawal successful");
+        } else {
+            System.out.println("Transaction aborted - balance was modified");
+        }
+    } else {
+        trans.unwatch();
+        System.out.println("Insufficient balance");
+    }
+}
+
+// Transaction with error handling
+try (AbstractTransaction trans = jedis.multi()) {
+
+    trans.set("key1", "value1");
+    trans.lpush("key1", "value2"); // Error: key1 is a string, not a list
+    trans.set("key2", "value2");
+
+    try {
+        trans.exec();
+    } catch (Exception e) {
+        System.err.println("Transaction failed: " + e.getMessage());
+        trans.discard(); // Discard transaction
+    }
+}
+
+jedis.close();
+```
+
+## Publish/Subscribe Messaging
+
+Implement real-time messaging with Redis pub/sub for event-driven applications.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.JedisPubSub;
+
+// Define subscriber listener
+class MySubscriber extends JedisPubSub {
+
+    @Override
+    public void onMessage(String channel, String message) {
+        System.out.println("Received message: '" + message + "' from channel: " + channel);
+    }
+
+    @Override
+    public void onSubscribe(String channel, int subscribedChannels) {
+        System.out.println("Subscribed to " + channel + " (total: " + subscribedChannels + ")");
+    }
+
+    @Override
+    public void onUnsubscribe(String channel, int subscribedChannels) {
+        System.out.println("Unsubscribed from " + channel + " (remaining: " + subscribedChannels + ")");
+    }
+
+    @Override
+    public void onPMessage(String pattern, String channel, String message) {
+        System.out.println("Pattern '" + pattern + "' matched channel '" + channel + "': " + message);
+    }
+
+    @Override
+    public void onPSubscribe(String pattern, int subscribedChannels) {
+        System.out.println("Subscribed to pattern: " + pattern);
+    }
+}
+
+// Subscriber thread
+Thread subscriberThread = new Thread(() -> {
+    RedisClient subscriberClient = RedisClient.create("localhost", 6379);
+    MySubscriber subscriber = new MySubscriber();
+
+    try {
+        // Subscribe to specific channels
+        subscriberClient.subscribe(subscriber, "news", "updates");
+
+        // Or subscribe to pattern
+        // subscriberClient.psubscribe(subscriber, "events:*", "logs:*");
+    } finally {
+        subscriberClient.close();
+    }
+});
+subscriberThread.start();
+
+// Give subscriber time to connect
+Thread.sleep(1000);
+
+// Publisher
+RedisClient publisherClient = RedisClient.create("localhost", 6379);
+
+// Publish messages
+long recipients = publisherClient.publish("news", "Breaking: Redis 8.0 released!");
+System.out.println("Message delivered to " + recipients + " subscribers");
+
+publisherClient.publish("updates", "System maintenance at 2AM");
+publisherClient.publish("news", "New features available");
+
+// Publish to pattern-matched channel
+publisherClient.publish("events:user:login", "User 123 logged in");
+publisherClient.publish("logs:error", "Connection timeout");
+
+// Cleanup
+Thread.sleep(2000);
+publisherClient.close();
+```
+
+## RedisJSON Operations
+
+Store, retrieve, and manipulate JSON documents directly in Redis with JSONPath queries.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.json.Path2;
+import redis.clients.jedis.json.JsonSetParams;
+import org.json.JSONObject;
+import org.json.JSONArray;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Set simple JSON value
+jedis.jsonSet("user:1", new Path2("$"), "\"John Doe\"");
+
+// Set complex JSON object
+JSONObject user = new JSONObject()
+    .put("name", "Alice Smith")
+    .put("email", "alice@example.com")
+    .put("age", 30)
+    .put("active", true)
+    .put("tags", new JSONArray().put("premium").put("verified"));
+
+jedis.jsonSet("user:2", new Path2("$"), user);
+
+// Get entire JSON document
+Object result = jedis.jsonGet("user:2", new Path2("$"));
+System.out.println(result);
+
+// Get specific field
+Object name = jedis.jsonGet("user:2", new Path2("$.name"));
+System.out.println(name); // ["Alice Smith"]
+
+// Set nested field
+jedis.jsonSet("user:2", new Path2("$.address"),
+    new JSONObject()
+        .put("city", "San Francisco")
+        .put("country", "USA"));
+
+// Update specific field
+jedis.jsonSet("user:2", new Path2("$.age"), 31);
+
+// Conditional SET (NX = only if path doesn't exist)
+jedis.jsonSet("user:2", new Path2("$.phone"), "555-1234",
+    JsonSetParams.jsonSetParams().nx());
+
+// Array operations - append
+jedis.jsonArrAppend("user:2", new Path2("$.tags"), "\"customer\"", "\"active\"");
+
+// Array operations - insert at index
+jedis.jsonArrInsert("user:2", new Path2("$.tags"), 0, "\"vip\"");
+
+// Array operations - get length
+Long arrayLen = jedis.jsonArrLen("user:2", new Path2("$.tags"));
+System.out.println("Tags count: " + arrayLen);
+
+// Numeric operations - increment
+JSONObject product = new JSONObject()
+    .put("name", "Laptop")
+    .put("price", 999.99)
+    .put("stock", 50);
+
+jedis.jsonSet("product:1", new Path2("$"), product);
+
+// Increment stock
+Object newStock = jedis.jsonNumIncrBy("product:1", new Path2("$.stock"), 10);
+System.out.println("New stock: " + newStock); // [60]
+
+// Decrement price
+Object newPrice = jedis.jsonNumIncrBy("product:1", new Path2("$.price"), -50.0);
+System.out.println("New price: " + newPrice); // [949.99]
+
+// String operations - append
+jedis.jsonSet("message", new Path2("$"), "\"Hello\"");
+jedis.jsonStrAppend("message", new Path2("$"), "\" World\"");
+Object msg = jedis.jsonGet("message", new Path2("$"));
+System.out.println(msg); // ["Hello World"]
+
+// Get type of value
+Object type = jedis.jsonType("user:2", new Path2("$.age"));
+System.out.println(type); // [integer]
+
+// Delete field
+jedis.jsonDel("user:2", new Path2("$.address"));
+
+// Complex query with multiple results
+JSONObject inventory = new JSONObject()
+    .put("bikes", new JSONArray()
+        .put(new JSONObject().put("model", "Mountain X").put("price", 1200))
+        .put(new JSONObject().put("model", "Road Y").put("price", 800))
+        .put(new JSONObject().put("model", "Hybrid Z").put("price", 950)));
+
+jedis.jsonSet("inventory:1", new Path2("$"), inventory);
+
+// Query all bike models
+Object models = jedis.jsonGet("inventory:1", new Path2("$.bikes[*].model"));
+System.out.println(models); // ["Mountain X","Road Y","Hybrid Z"]
+
+// Query bikes with price filter (requires RediSearch integration)
+Object affordableBikes = jedis.jsonGet("inventory:1", new Path2("$.bikes[?(@.price < 1000)]"));
+
+jedis.close();
+```
+
+## RediSearch Full-Text Search
+
+Create search indexes and perform full-text search, aggregations, and complex queries.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.search.*;
+import redis.clients.jedis.search.schemafields.*;
+import redis.clients.jedis.json.Path2;
+import org.json.JSONObject;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Create JSON documents
+JSONObject bike1 = new JSONObject()
+    .put("brand", "Velorim")
+    .put("model", "Jigger")
+    .put("price", 270)
+    .put("type", "Kids bikes")
+    .put("specs", new JSONObject().put("material", "aluminium").put("weight", 10))
+    .put("description", "Small and powerful bike for kids");
+
+JSONObject bike2 = new JSONObject()
+    .put("brand", "Bicyk")
+    .put("model", "Hillcraft")
+    .put("price", 1200)
+    .put("type", "Mountain bikes")
+    .put("specs", new JSONObject().put("material", "carbon").put("weight", 13.5))
+    .put("description", "Premium mountain bike with advanced suspension");
+
+JSONObject bike3 = new JSONObject()
+    .put("brand", "Nord")
+    .put("model", "Chook")
+    .put("price", 815)
+    .put("type", "Commuter bikes")
+    .put("specs", new JSONObject().put("material", "steel").put("weight", 14))
+    .put("description", "Durable commuter bike for daily rides");
+
+jedis.jsonSet("bicycle:1", new Path2("$"), bike1);
+jedis.jsonSet("bicycle:2", new Path2("$"), bike2);
+jedis.jsonSet("bicycle:3", new Path2("$"), bike3);
+
+// Create search index
+SchemaField[] schema = {
+    TextField.of("$.brand").as("brand"),
+    TextField.of("$.model").as("model"),
+    TextField.of("$.description").as("description"),
+    NumericField.of("$.price").as("price"),
+    TagField.of("$.type").as("type"),
+    NumericField.of("$.specs.weight").as("weight")
+};
+
+jedis.ftCreate("idx:bicycle",
+    FTCreateParams.createParams()
+        .on(IndexDataType.JSON)
+        .addPrefix("bicycle:"),
+    schema
+);
+
+// Wait for index to be built
+Thread.sleep(1000);
+
+// Simple search
+SearchResult result = jedis.ftSearch("idx:bicycle", "mountain bike");
+System.out.println("Found " + result.getTotalResults() + " results");
+for (Document doc : result.getDocuments()) {
+    System.out.println(doc.getId() + ": " + doc.getString("model"));
+}
+
+// Search with query builder
+Query query = new Query("kids")
+    .returnFields("brand", "model", "price");
+
+result = jedis.ftSearch("idx:bicycle", query);
+
+// Numeric filter
+Query priceQuery = new Query("bike")
+    .addFilter(new Query.NumericFilter("price", 500, 1000));
+
+result = jedis.ftSearch("idx:bicycle", priceQuery);
+System.out.println("Bikes between $500-$1000: " + result.getTotalResults());
+
+// Tag filter
+Query typeQuery = new Query("*")
+    .addFilter(new Query.TagFilter("type", "Mountain bikes"));
+
+result = jedis.ftSearch("idx:bicycle", typeQuery);
+
+// Pagination
+Query pagedQuery = new Query("bike")
+    .limit(0, 10) // offset 0, limit 10
+    .setSortBy("price", true); // sort by price ascending
+
+result = jedis.ftSearch("idx:bicycle", pagedQuery);
+
+// Aggregation query
+AggregationBuilder aggBuilder = new AggregationBuilder("*")
+    .groupBy("@type", Reducers.count().as("count"))
+    .sortBy(10, SortedField.desc("@count"));
+
+AggregationResult aggResult = jedis.ftAggregate("idx:bicycle", aggBuilder);
+for (Map<String, Object> row : aggResult.getResults()) {
+    System.out.println("Type: " + row.get("type") + ", Count: " + row.get("count"));
+}
+
+// Complex aggregation with filters
+AggregationBuilder complexAgg = new AggregationBuilder("@price:[500 1500]")
+    .groupBy("@type",
+        Reducers.avg("@price").as("avg_price"),
+        Reducers.min("@price").as("min_price"),
+        Reducers.max("@price").as("max_price"),
+        Reducers.count().as("count"))
+    .sortBy(10, SortedField.asc("@avg_price"));
+
+aggResult = jedis.ftAggregate("idx:bicycle", complexAgg);
+
+// Delete index
+jedis.ftDropIndex("idx:bicycle");
+
+jedis.close();
+```
+
+## Connection Pool Configuration
+
+Configure connection pooling for high-performance production deployments with tuned settings.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.ConnectionPoolConfig;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.JedisClientConfig;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import java.time.Duration;
+
+// Create pool configuration
+GenericObjectPoolConfig<Connection> poolConfig = new ConnectionPoolConfig();
+
+// Maximum total connections in pool
+poolConfig.setMaxTotal(128);
+
+// Maximum idle connections
+poolConfig.setMaxIdle(128);
+
+// Minimum idle connections (kept ready)
+poolConfig.setMinIdle(16);
+
+// Block when pool is exhausted (wait for connection)
+poolConfig.setBlockWhenExhausted(true);
+
+// Maximum wait time for connection (milliseconds)
+poolConfig.setMaxWait(Duration.ofSeconds(10));
+
+// Test connection before borrowing from pool
+poolConfig.setTestOnBorrow(true);
+
+// Test connection when returning to pool
+poolConfig.setTestOnReturn(true);
+
+// Test idle connections
+poolConfig.setTestWhileIdle(true);
+
+// Eviction policy
+poolConfig.setTimeBetweenEvictionRuns(Duration.ofSeconds(30));
+poolConfig.setMinEvictableIdleTime(Duration.ofMinutes(1));
+poolConfig.setNumTestsPerEvictionRun(3);
+
+// Create client configuration
+JedisClientConfig clientConfig = DefaultJedisClientConfig.builder()
+    .connectionTimeoutMillis(2000)
+    .socketTimeoutMillis(2000)
+    .password("mypassword")
+    .database(0)
+    .clientName("myapp")
+    .ssl(false)
+    .build();
+
+// Create RedisClient with pool configuration
+RedisClient client = RedisClient.builder()
+    .hostAndPort("localhost", 6379)
+    .clientConfig(clientConfig)
+    .poolConfig(poolConfig)
+    .build();
+
+// Use client (connections are automatically managed)
+for (int i = 0; i < 1000; i++) {
+    client.set("key:" + i, "value:" + i);
+    String value = client.get("key:" + i);
+}
+
+// Get pool statistics
+System.out.println("Active connections: " + client.getPool().getNumActive());
+System.out.println("Idle connections: " + client.getPool().getNumIdle());
+System.out.println("Total connections: " + client.getPool().getNumActive() +
+                   client.getPool().getNumIdle());
+
+// Close client (returns all connections to pool and closes them)
+client.close();
+
+// Advanced: Multiple Redis instances with separate pools
+RedisClient cache = RedisClient.builder()
+    .hostAndPort("cache.redis.local", 6379)
+    .poolConfig(poolConfig)
+    .build();
+
+RedisClient sessions = RedisClient.builder()
+    .hostAndPort("sessions.redis.local", 6379)
+    .poolConfig(poolConfig)
+    .build();
+
+// Use different instances for different purposes
+cache.set("user:1:profile", "cached_data");
+sessions.set("session:abc123", "session_data");
+
+cache.close();
+sessions.close();
+```
+
+## Key Expiration and TTL
+
+Manage key expiration, time-to-live (TTL), and persistence settings for cache and session management.
+
+```java
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.params.SetParams;
+import redis.clients.jedis.args.ExpiryOption;
+
+RedisClient jedis = RedisClient.create("localhost", 6379);
+
+// Set key with expiration (seconds)
+jedis.setex("session:user1", 3600, "active"); // expires in 1 hour
+
+// Set key with expiration (milliseconds)
+jedis.psetex("cache:data", 60000, "temporary"); // expires in 60 seconds
+
+// Set with expiration using SetParams
+jedis.set("token:abc", "secret", SetParams.setParams().ex(1800)); // 30 minutes
+
+// Set expiration on existing key (seconds)
+jedis.expire("mykey", 300); // expires in 5 minutes
+
+// Set expiration on existing key (milliseconds)
+jedis.pexpire("mykey", 300000); // expires in 5 minutes
+
+// Set expiration at specific Unix timestamp (seconds)
+long timestamp = System.currentTimeMillis() / 1000 + 3600;
+jedis.expireAt("mykey", timestamp); // expires at specific time
+
+// Set expiration at specific Unix timestamp (milliseconds)
+long timestampMs = System.currentTimeMillis() + 3600000;
+jedis.pexpireAt("mykey", timestampMs);
+
+// Get TTL (time to live) in seconds
+long ttl = jedis.ttl("session:user1");
+if (ttl == -2) {
+    System.out.println("Key does not exist");
+} else if (ttl == -1) {
+    System.out.println("Key exists but has no expiration");
+} else {
+    System.out.println("Key expires in " + ttl + " seconds");
+}
+
+// Get TTL in milliseconds
+long pttl = jedis.pttl("session:user1");
+System.out.println("Key expires in " + pttl + " milliseconds");
+
+// Remove expiration (make key persistent)
+jedis.persist("session:user1");
+
+// Get expiration timestamp
+long expireTime = jedis.expireTime("session:user1"); // Unix timestamp in seconds
+long pexpireTime = jedis.pexpireTime("session:user1"); // Unix timestamp in milliseconds
+
+// Conditional expiration - set only if key has no expiration
+jedis.expire("mykey", 600, ExpiryOption.NX);
+
+// Conditional expiration - set only if key already has expiration
+jedis.expire("mykey", 600, ExpiryOption.XX);
+
+// Conditional expiration - set only if new TTL is greater than current
+jedis.expire("mykey", 1200, ExpiryOption.GT);
+
+// Conditional expiration - set only if new TTL is less than current
+jedis.expire("mykey", 300, ExpiryOption.LT);
+
+// Practical example: Session management
+String sessionId = "session:user123";
+String sessionData = "{\"userId\":123,\"loginTime\":\"2025-01-09T10:00:00Z\"}";
+
+// Create session with 1 hour expiration
+jedis.setex(sessionId, 3600, sessionData);
+
+// Refresh session on user activity
+jedis.expire(sessionId, 3600);
+
+// Check if session is still valid
+if (jedis.exists(sessionId)) {
+    String data = jedis.get(sessionId);
+    long remaining = jedis.ttl(sessionId);
+    System.out.println("Session valid for " + remaining + " more seconds");
+}
+
+// Practical example: Rate limiting with expiration
+String rateLimitKey = "rate:user123:" + (System.currentTimeMillis() / 1000 / 60); // per minute
+
+Long requests = jedis.incr(rateLimitKey);
+if (requests == 1) {
+    // First request in this minute, set expiration
+    jedis.expire(rateLimitKey, 60);
+}
+
+if (requests > 100) {
+    System.out.println("Rate limit exceeded");
+}
+
+jedis.close();
+```
+
+## Summary and Integration
+
+Jedis provides a complete, production-ready Java interface to Redis with comprehensive command coverage across all data types, modules, and deployment patterns. The modern `RedisClient` and `RedisClusterClient` APIs offer built-in connection pooling, automatic resource management, and simplified configuration compared to legacy approaches. For high-throughput scenarios, pipelining batches commands to minimize network round-trips, while transactions ensure atomic multi-command operations with optimistic locking via WATCH. Advanced features like RedisJSON enable document storage with JSONPath queries, and RediSearch adds full-text search, secondary indexing, and aggregation capabilities. The pub/sub implementation supports real-time messaging patterns for event-driven architectures.
+
+Integration patterns typically involve creating a singleton client instance at application startup with connection pooling configured based on expected concurrency (e.g., `maxTotal=128` for web applications). Use specific data structures for their strengths: strings for simple key-value caching, hashes for objects, lists for queues, sets for tags and relationships, and sorted sets for leaderboards and rankings. For distributed systems, Redis Cluster support with `RedisClusterClient` provides automatic sharding and high availability. Jedis integrates seamlessly with Spring through dependency injection, supports both synchronous and pipelined execution models, and handles connection failures gracefully with configurable timeouts and retry logic. The library is thread-safe when using pooled connections, making it suitable for concurrent multi-threaded applications including web servers, microservices, and background job processors.

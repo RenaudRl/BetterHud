@@ -1,0 +1,505 @@
+### Add startAsync Method to SocketIOServer
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+A new asynchronous start method, `startAsync`, has been added to the `SocketIOServer` class. This method allows the server to be started in a non-blocking manner, improving application responsiveness and integration with asynchronous frameworks.
+
+```APIDOC
+SocketIOServer.startAsync(): void
+  Description: Starts the Socket.IO server asynchronously.
+```
+
+--------------------------------
+
+### Add Bulk Join and Leave Support
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Introduces functionality for clients to join and leave multiple rooms in a single operation, improving efficiency for room management.
+
+```APIDOC
+Feature: Support for bulk join and leave operations for clients.
+```
+
+--------------------------------
+
+### Add trustStore and maxFramePayloadLength Settings
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+New configuration settings, `trustStore` and `maxFramePayloadLength`, have been added. `trustStore` allows specifying a trust store for SSL/TLS, while `maxFramePayloadLength` controls the maximum size of WebSocket frame payloads, enhancing security and performance tuning.
+
+```APIDOC
+Configuration.trustStore: String
+  Description: Path to the trust store for SSL/TLS connections.
+Configuration.maxFramePayloadLength: int
+  Description: Maximum length of a WebSocket frame payload.
+```
+
+--------------------------------
+
+### Add getAllClients and getClient Methods to SocketIONamespace
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+New methods, `getAllClients()` and `getClient(uuid: UUID)`, have been added to the `SocketIONamespace` class. These methods provide enhanced capabilities for managing and accessing connected clients within a specific namespace.
+
+```APIDOC
+SocketIONamespace.getAllClients(): Collection<SocketIOClient>
+  Description: Returns all clients connected to the namespace.
+SocketIONamespace.getClient(uuid: UUID): SocketIOClient
+  Description: Returns a specific client by its UUID.
+```
+
+--------------------------------
+
+### Add sslProtocol Parameter to Configuration
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+The `sslProtocol` parameter has been added to the `Configuration` class. This feature enables developers to specify the desired SSL/TLS protocol for secure connections, enhancing security configuration flexibility.
+
+```APIDOC
+Configuration.sslProtocol: String
+  Description: Specifies the SSL/TLS protocol to use for secure connections.
+```
+
+--------------------------------
+
+### Add Configuration.autoAck Parameter
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+The `Configuration.autoAck` parameter has been added. This setting provides an option to automatically acknowledge packets, simplifying acknowledgment handling for developers. (Note: This parameter was later replaced by `ackMode` in version 1.6.5).
+
+```APIDOC
+Configuration.autoAck: boolean
+  Description: Enables automatic packet acknowledgment.
+```
+
+--------------------------------
+
+### Add Write Buffer Watermark Settings
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Introduces `writeBufferWaterMarkLow` and `writeBufferWaterMarkHigh` settings for fine-grained control over write buffer flow, enhancing performance and stability.
+
+```APIDOC
+Configuration: writeBufferWaterMarkLow and writeBufferWaterMarkHigh settings added.
+```
+
+--------------------------------
+
+### Add getCurrentRoomSize() Method
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Introduces `getCurrentRoomSize()` method to retrieve the current number of clients in a specific room, useful for monitoring and management.
+
+```APIDOC
+RoomOperations.getCurrentRoomSize(): int
+```
+
+--------------------------------
+
+### Add Origin and Cross-Domain Policy Settings
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+New settings, `origin` and `crossDomainPolicy`, have been added to the configuration. These features provide more control over cross-domain requests and origin validation, improving security and flexibility for web applications.
+
+```APIDOC
+Configuration.origin: String
+  Description: Sets the allowed origin for cross-domain requests.
+Configuration.crossDomainPolicy: String
+  Description: Defines the cross-domain policy.
+```
+
+--------------------------------
+
+### Add Namespace.addListeners() Method
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Adds a new method to `Namespace` allowing for the bulk addition of multiple listeners from an iterable collection, simplifying listener management.
+
+```APIDOC
+Namespace.addListeners(listeners: Iterable<L>): void
+```
+
+--------------------------------
+
+### Add useStrictOrdering Parameter for WebSocket Ordering
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+The `useStrictOrdering` parameter has been added to the configuration. This parameter allows developers to enforce strict ordering for websocket packets, which is crucial for applications requiring precise message sequence.
+
+```APIDOC
+Configuration.useStrictOrdering: boolean
+  Description: Enables strict ordering for websocket packets.
+```
+
+--------------------------------
+
+### Add allowHeaders Setting
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Adds an `allowHeaders` setting, providing more control over which HTTP headers are permitted in cross-origin requests.
+
+```APIDOC
+Configuration: allowHeaders setting added.
+```
+
+--------------------------------
+
+### Maven Dependency for Netty-socketio
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+This XML snippet provides the necessary Maven dependency configuration to include the Netty-socketio library in a Java project. It specifies the groupId, artifactId, and version for the library, allowing developers to easily integrate the library into their build system.
+
+```XML
+    <dependency>
+     <groupId>com.corundumstudio.socketio</groupId>
+     <artifactId>netty-socketio</artifactId>
+     <version>2.0.13</version>
+    </dependency>
+```
+
+--------------------------------
+
+### Replace Configuration.autoAck with ackMode (Breaking Change)
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+This is a breaking API change: the `Configuration.autoAck` parameter has been replaced by `ackMode`. Developers must update their configurations to use the new `ackMode` setting for managing acknowledgment behavior, which offers more granular control.
+
+```APIDOC
+Configuration.autoAck: boolean (REMOVED)
+Configuration.ackMode: Enum (NEW)
+  Description: Replaces autoAck for managing acknowledgment behavior.
+```
+
+--------------------------------
+
+### Add needClientAuth Setting
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Introduces a `needClientAuth` setting, allowing the server to require client authentication for SSL/TLS connections.
+
+```APIDOC
+Configuration: needClientAuth setting added.
+```
+
+--------------------------------
+
+### Introduce Common Exception Listener
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+A common exception listener has been introduced, providing a centralized mechanism for handling exceptions across the application. This improves error management and allows for consistent logging and recovery strategies.
+
+```APIDOC
+ExceptionListener: Interface
+  Description: A common interface for handling exceptions within the Socket.IO server.
+```
+
+--------------------------------
+
+### Add Multi-Type Events Support
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Support for multi-type events has been added through `MultiTypeEventListener` and the `OnEvent` annotation. This feature allows event listeners to handle multiple data types for a single event, providing greater flexibility in event processing.
+
+```APIDOC
+MultiTypeEventListener: Interface
+  Description: Listener for events with multiple data types.
+OnEvent: Annotation
+  Description: Annotation to mark methods as multi-type event handlers.
+```
+
+--------------------------------
+
+### Fix BaseStoreFactory NullPointerException
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Resolves a NullPointerException that could occur within the `BaseStoreFactory`, improving stability.
+
+```APIDOC
+Fixed: BaseStoreFactory no longer throws NullPointerException.
+```
+
+--------------------------------
+
+### Add Authorization Support
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Authorization support has been added, enabling developers to implement custom authentication and authorization logic for client connections. This feature enhances security by allowing control over who can connect to the Socket.IO server.
+
+```APIDOC
+AuthorizationListener: Interface
+  Description: Interface for implementing custom authorization logic.
+Configuration.setAuthorizationListener(listener: AuthorizationListener): void
+  Description: Sets the authorization listener for the server.
+```
+
+--------------------------------
+
+### Fix Namespace Bug
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Resolves a general bug related to namespace functionality, improving the reliability of multi-namespace applications.
+
+```APIDOC
+Fixed: General
+```
+
+--------------------------------
+
+### Add getName Method to SocketIONamespace
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+A new method, `getName()`, has been added to the `SocketIONamespace` class. This method allows developers to retrieve the name of the current Socket.IO namespace, providing better introspection capabilities.
+
+```APIDOC
+SocketIONamespace.getName(): String
+  Description: Returns the name of the Socket.IO namespace.
+```
+
+--------------------------------
+
+### Remove Configuration.heartbeatThreadPoolSize (Breaking Change)
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+This is a breaking API change: the `Configuration.heartbeatThreadPoolSize` setting has been removed. Developers should review their configuration files and remove any references to this parameter, as heartbeat thread pool management is now handled differently.
+
+```APIDOC
+Configuration.heartbeatThreadPoolSize: int (REMOVED)
+  Description: Setting for heartbeat thread pool size has been removed.
+```
+
+--------------------------------
+
+### Fix Illegal Transport Parameter Handling
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Corrects the handling of illegal transport parameters, improving robustness against malformed requests.
+
+```APIDOC
+Fixed: Illegal transport parameter handling improved.
+```
+
+--------------------------------
+
+### DataListener.onData Now Throws Exception (Breaking Change)
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+This is a breaking API change: the `DataListener.onData` method now throws an `Exception`. Developers must update their implementations to handle this checked exception, ensuring proper error propagation and handling.
+
+```APIDOC
+DataListener.onData(data: Object) throws Exception
+  Description: The onData method now declares that it throws an Exception.
+```
+
+--------------------------------
+
+### Add Ping/Pong Support for Socket.IO v4
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Implements ping/pong mechanism compatibility for the Socket.IO v4 protocol, ensuring proper liveness checks and connection management with newer clients.
+
+```APIDOC
+Feature: Ping/pong support added for Socket.IO v4 protocol.
+```
+
+--------------------------------
+
+### Add Data Parameter to Exception Listener
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+An additional `data` parameter has been added to the exception listener. This improvement provides more context when an exception occurs, allowing developers to inspect the data associated with the error.
+
+```APIDOC
+ExceptionListener.exceptionCaught(e: Throwable, data: Object): void
+  Description: The exception listener now receives the data parameter.
+```
+
+--------------------------------
+
+### Add Multi-Type Events Ack Support
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Multi-type event acknowledgment support has been introduced via `MultiTypeAckCallback`. This allows for flexible acknowledgment handling for events that carry multiple data types, ensuring proper response mechanisms.
+
+```APIDOC
+MultiTypeAckCallback: Interface
+  Description: Callback for acknowledging multi-type events.
+```
+
+--------------------------------
+
+### Fix Transport Name Uppercase Check
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Corrects a regression from version 1.7.20 where transport names were not being checked in uppercase, leading to incorrect transport identification.
+
+```APIDOC
+Fixed: Transport name check now correctly handles uppercase values (regression from 1.7.20).
+```
+
+--------------------------------
+
+### Drop SocketIOClient sendMessage and sendJsonObject Methods
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+As part of the Socket.IO 1.0 protocol support, the `sendMessage` and `sendJsonObject` methods, along with their corresponding listeners, have been dropped from `SocketIOClient`. Developers should update their code to use the new event-based messaging paradigm.
+
+```APIDOC
+SocketIOClient.sendMessage(message: String): void (DROPPED)
+SocketIOClient.sendJsonObject(jsonObject: JsonObject): void (DROPPED)
+  Description: Methods for sending messages and JSON objects have been removed.
+```
+
+--------------------------------
+
+### Add exceptionCaught Method to ExceptionListener
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+The `exceptionCaught` method has been added to the `ExceptionListener` interface. This enhancement provides a dedicated callback for handling exceptions, allowing for more robust error management within the application.
+
+```APIDOC
+ExceptionListener.exceptionCaught(e: Throwable): void
+  Description: Callback method invoked when an exception is caught.
+```
+
+--------------------------------
+
+### Add Annotated Spring Beans Support via SpringAnnotationScanner
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Support for annotated Spring beans has been introduced via the `SpringAnnotationScanner`. This feature simplifies integration with Spring-based applications, allowing developers to use annotations for defining Socket.IO event handlers and other components.
+
+```APIDOC
+SpringAnnotationScanner: Class
+  Description: Provides support for scanning and registering annotated Spring beans as Socket.IO components.
+```
+
+--------------------------------
+
+### Add SocketIOClient.isWritable() Method
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Introduces a new method to `SocketIOClient` to check if the client is currently writable, allowing for flow control and preventing buffer overflows.
+
+```APIDOC
+SocketIOClient.isWritable(): boolean
+```
+
+--------------------------------
+
+### Configure JSON Decoder for Empty Beans
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+The JSON decoder's default behavior has been updated to set `FAIL_ON_EMPTY_BEANS` to `false`. This improvement prevents errors when processing JSON that might contain empty bean definitions, making the decoder more robust.
+
+```APIDOC
+JsonDecoder.FAIL_ON_EMPTY_BEANS: boolean = false
+  Description: Option to prevent failure on empty JSON beans.
+```
+
+--------------------------------
+
+### Fix Event Listener Source/Destination Mismatch
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Resolves an issue where event listener source classes and destination beans were not matching, leading to incorrect event dispatching.
+
+```APIDOC
+Fixed: Event listener source class and destination bean mismatch resolved.
+```
+
+--------------------------------
+
+### Add getHandshakeData Method to SocketIOClient
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+A new method, `getHandshakeData()`, has been added to the `SocketIOClient` class. This method allows developers to retrieve the handshake data associated with a client connection, providing access to initial connection parameters.
+
+```APIDOC
+SocketIOClient.getHandshakeData(): HandshakeData
+  Description: Returns the handshake data for the client connection.
+```
+
+--------------------------------
+
+### SocketIOClient.sendEvent Methods Signature Changed (Breaking Change)
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+This is a breaking API change: the signature of `SocketIOClient.sendEvent` methods has been modified. Developers must update their calls to `sendEvent` to match the new signature, which may involve changes to parameter types or order.
+
+```APIDOC
+SocketIOClient.sendEvent(eventName: String, ...args: Object[]): void (SIGNATURE CHANGED)
+  Description: The method signature for sending events has been updated.
+```
+
+--------------------------------
+
+### Fix WebSocketFrame Usage for Large Payloads
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Ensures that `ContinuationWebSocketFrame` is correctly used when the payload size exceeds `maxFramePayloadLength`, preventing data fragmentation issues.
+
+```APIDOC
+Fixed: `ContinuationWebSocketFrame` now correctly used for payloads exceeding `maxFramePayloadLength`.
+```
+
+--------------------------------
+
+### Fix Auto Disconnection Regression
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Addresses a regression introduced in version 1.7.22 that caused clients to auto-disconnect unexpectedly, restoring stable connection behavior.
+
+```APIDOC
+Fixed: Auto-disconnection issue (regression from 1.7.22) resolved.
+```
+
+--------------------------------
+
+### Fix Disconnect Event Packet Type
+
+Source: https://github.com/mrniko/netty-socketio/blob/master/README.md
+
+Corrects an issue where the disconnect event packet was not properly classified as a subtype of MESSAGE, ensuring correct packet handling.
+
+```APIDOC
+Fixed: Disconnect event packet type corrected to be a subtype of MESSAGE.
+```
+
+=== COMPLETE CONTENT === This response contains all available snippets from this library. No additional content exists. Do not make further requests.

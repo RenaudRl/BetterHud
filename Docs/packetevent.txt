@@ -1,0 +1,463 @@
+# PacketEvents
+
+PacketEvents is a comprehensive protocol library designed specifically for Minecraft Java Edition servers and proxies. It provides a powerful event-driven API for intercepting, analyzing, and manipulating network packets transmitted between Minecraft clients and servers. The library abstracts the complexity of packet handling across multiple Minecraft versions, offering a unified interface for developers to work with network traffic regardless of protocol differences.
+
+The library operates through a sophisticated channel injection system built on Netty, allowing developers to register packet listeners with configurable priorities, read and write packet data using strongly-typed wrapper classes, and support multiple server platforms including Spigot, BungeeCord, Velocity, Sponge, and Fabric. PacketEvents handles protocol version abstraction, automatic packet serialization/deserialization, and provides extensive wrapper classes for game objects like items, entities, chat messages, and world data. It serves as the foundation for anti-cheat plugins, chat filters, custom game mechanics, and any plugin requiring deep packet-level access.
+
+## API Initialization and Lifecycle
+
+Initialize and manage the PacketEvents API instance
+
+```java
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
+
+// Access the global API instance
+PacketEventsAPI<?> api = PacketEvents.getAPI();
+
+// Initialize the library (typically in plugin onLoad)
+try {
+    api.load();
+
+    // Register listeners before initialization
+    api.getEventManager().registerListener(new MyPacketListener());
+
+    // Initialize after registration (typically in plugin onEnable)
+    api.init();
+
+    System.out.println("PacketEvents version: " + api.getVersion());
+} catch (Exception e) {
+    e.printStackTrace();
+}
+
+// Check status
+if (api.isLoaded() && api.isInitialized()) {
+    System.out.println("PacketEvents ready");
+}
+
+// Cleanup on shutdown (typically in plugin onDisable)
+api.terminate();
+```
+
+## Registering Packet Listeners
+
+Create and register event listeners to intercept packets
+
+```java
+import com.github.retrooper.packetevents.event.PacketListenerAbstract;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+
+public class MyPacketListener extends PacketListenerAbstract {
+
+    public MyPacketListener() {
+        // Set listener priority (LOWEST, LOW, NORMAL, HIGH, HIGHEST, MONITOR)
+        super(PacketListenerPriority.NORMAL);
+    }
+
+    @Override
+    public void onPacketReceive(PacketReceiveEvent event) {
+        // Handle packets sent from client to server
+        if (event.getPacketType() == PacketType.Play.Client.CHAT_MESSAGE) {
+            System.out.println("Player sent chat message");
+        }
+    }
+
+    @Override
+    public void onPacketSend(PacketSendEvent event) {
+        // Handle packets sent from server to client
+        if (event.getPacketType() == PacketType.Play.Server.SYSTEM_CHAT_MESSAGE) {
+            System.out.println("Server sending chat message");
+        }
+    }
+}
+
+// Register the listener
+PacketEvents.getAPI().getEventManager().registerListener(
+    new MyPacketListener()
+);
+
+// Register multiple listeners at once
+PacketEvents.getAPI().getEventManager().registerListeners(
+    new MyPacketListener(),
+    new AnotherListener(),
+    new ThirdListener()
+);
+
+// Unregister a specific listener
+MyPacketListener listener = new MyPacketListener();
+PacketEvents.getAPI().getEventManager().registerListener(listener);
+// Later...
+PacketEvents.getAPI().getEventManager().unregisterListener(listener);
+```
+
+## Reading Packet Data with Wrappers
+
+Extract data from incoming packets using type-safe wrappers
+
+```java
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientChatMessage;
+import com.github.retrooper.packetevents.util.Vector3d;
+
+@Override
+public void onPacketReceive(PacketReceiveEvent event) {
+    // Read player position packets
+    if (event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION) {
+        WrapperPlayClientPlayerFlying wrapper =
+            new WrapperPlayClientPlayerFlying(event);
+
+        if (wrapper.hasPositionChanged()) {
+            Vector3d position = wrapper.getLocation().getPosition();
+            System.out.println("Player moved to: " +
+                position.x + ", " + position.y + ", " + position.z);
+        }
+
+        if (wrapper.hasRotationChanged()) {
+            float yaw = wrapper.getLocation().getYaw();
+            float pitch = wrapper.getLocation().getPitch();
+            System.out.println("Player rotated: yaw=" + yaw + ", pitch=" + pitch);
+        }
+
+        boolean onGround = wrapper.isOnGround();
+    }
+
+    // Read chat messages (1.19+)
+    if (event.getPacketType() == PacketType.Play.Client.CHAT_MESSAGE) {
+        WrapperPlayClientChatMessage chatWrapper =
+            new WrapperPlayClientChatMessage(event);
+
+        String message = chatWrapper.getMessage();
+        long timestamp = chatWrapper.getTimestamp();
+
+        System.out.println("Chat: " + message + " at " + timestamp);
+    }
+}
+```
+
+## Modifying and Cancelling Packets
+
+Intercept and modify packet data or prevent packet transmission
+
+```java
+import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSystemChatMessage;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
+@Override
+public void onPacketSend(PacketSendEvent event) {
+    // Intercept and modify system chat messages
+    if (event.getPacketType() == PacketType.Play.Server.SYSTEM_CHAT_MESSAGE) {
+        WrapperPlayServerSystemChatMessage wrapper =
+            new WrapperPlayServerSystemChatMessage(event);
+
+        Component originalMessage = wrapper.getMessage();
+
+        // Modify the message
+        Component newMessage = Component.text("[MODIFIED] ", NamedTextColor.RED)
+            .append(originalMessage);
+        wrapper.setMessage(newMessage);
+
+        // Write changes back to the packet
+        event.markForReEncode(true);
+    }
+
+    // Cancel a packet entirely (prevent it from being sent)
+    if (event.getPacketType() == PacketType.Play.Server.PLAYER_INFO_UPDATE) {
+        if (shouldBlockPacket()) {
+            event.setCancelled(true);
+        }
+    }
+}
+
+private boolean shouldBlockPacket() {
+    // Custom logic to determine if packet should be blocked
+    return true;
+}
+```
+
+## Creating and Sending Custom Packets
+
+Construct and send packets programmatically to players
+
+```java
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSystemChatMessage;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
+public void sendCustomChatMessage(User user) {
+    // Create a custom system chat message
+    Component message = Component.text("Hello from PacketEvents!", NamedTextColor.GOLD);
+
+    WrapperPlayServerSystemChatMessage chatPacket =
+        new WrapperPlayServerSystemChatMessage(false, message);
+
+    // Send the packet to the user
+    user.sendPacket(chatPacket);
+}
+
+public void sendActionBarMessage(User user, String text) {
+    // Create an action bar message (overlay = true)
+    Component actionBar = Component.text(text, NamedTextColor.YELLOW);
+
+    WrapperPlayServerSystemChatMessage packet =
+        new WrapperPlayServerSystemChatMessage(true, actionBar);
+
+    user.sendPacket(packet);
+}
+
+// Send to all players
+public void broadcastPacket() {
+    Component broadcast = Component.text("Server announcement!", NamedTextColor.RED);
+    WrapperPlayServerSystemChatMessage packet =
+        new WrapperPlayServerSystemChatMessage(false, broadcast);
+
+    for (User user : PacketEvents.getAPI().getPlayerManager().getUsers()) {
+        user.sendPacket(packet);
+    }
+}
+```
+
+## Working with PacketWrapper Base Class
+
+Use the PacketWrapper API for custom packet reading and writing
+
+```java
+import com.github.retrooper.packetevents.wrapper.PacketWrapper;
+import com.github.retrooper.packetevents.protocol.item.ItemStack;
+import com.github.retrooper.packetevents.protocol.item.type.ItemTypes;
+import com.github.retrooper.packetevents.protocol.nbt.NBTCompound;
+import net.kyori.adventure.text.Component;
+import java.util.UUID;
+import java.util.List;
+
+public void demonstratePacketWrapperAPI(PacketWrapper<?> wrapper) {
+    // Reading primitive types
+    int varInt = wrapper.readVarInt();
+    long varLong = wrapper.readVarLong();
+    boolean flag = wrapper.readBoolean();
+    byte byteVal = wrapper.readByte();
+    short shortVal = wrapper.readShort();
+    int intVal = wrapper.readInt();
+    long longVal = wrapper.readLong();
+    float floatVal = wrapper.readFloat();
+    double doubleVal = wrapper.readDouble();
+
+    // Reading strings and identifiers
+    String message = wrapper.readString();
+    String limitedString = wrapper.readString(256);
+
+    // Reading UUIDs and positions
+    UUID playerUuid = wrapper.readUUID();
+    Vector3i blockPos = wrapper.readBlockPosition();
+
+    // Reading collections
+    List<String> stringList = wrapper.readList(PacketWrapper::readString);
+    int[] intArray = wrapper.readVarIntArray();
+    byte[] byteArray = wrapper.readByteArray();
+
+    // Reading game objects
+    ItemStack item = wrapper.readItemStack();
+    NBTCompound nbt = wrapper.readNBT();
+    Component component = wrapper.readComponent();
+
+    // Writing primitive types
+    wrapper.writeVarInt(42);
+    wrapper.writeVarLong(12345L);
+    wrapper.writeBoolean(true);
+    wrapper.writeString("Hello");
+    wrapper.writeUUID(UUID.randomUUID());
+
+    // Writing collections
+    List<String> names = List.of("Alice", "Bob", "Charlie");
+    wrapper.writeList(names, PacketWrapper::writeString);
+
+    // Writing game objects
+    ItemStack sword = ItemStack.builder()
+        .type(ItemTypes.DIAMOND_SWORD)
+        .amount(1)
+        .build();
+    wrapper.writeItemStack(sword);
+
+    wrapper.writeComponent(Component.text("Test"));
+}
+```
+
+## Protocol Version Handling
+
+Handle version-specific packet differences gracefully
+
+```java
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.wrapper.PacketWrapper;
+
+public class VersionAwarePacketHandler extends PacketListenerAbstract {
+
+    @Override
+    public void onPacketSend(PacketSendEvent event) {
+        ServerVersion serverVersion = event.getServerVersion();
+        ClientVersion clientVersion = event.getUser().getClientVersion();
+
+        // Check version conditions
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_19)) {
+            // Handle 1.19+ specific logic
+            handleModernPacket(event);
+        } else {
+            // Handle legacy versions
+            handleLegacyPacket(event);
+        }
+
+        // Version-specific packet reading
+        PacketWrapper<?> wrapper = new PacketWrapper<>(event);
+        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_20_3)) {
+            // Components are NBT-based in 1.20.3+
+            Component comp = wrapper.readComponentAsNBT();
+        } else {
+            // Components are JSON-based in older versions
+            Component comp = wrapper.readComponentAsJSON();
+        }
+    }
+
+    private void handleModernPacket(PacketSendEvent event) {
+        // Modern packet handling
+    }
+
+    private void handleLegacyPacket(PacketSendEvent event) {
+        // Legacy packet handling
+    }
+}
+```
+
+## User Connection Lifecycle Events
+
+Track player connections and disconnections
+
+```java
+import com.github.retrooper.packetevents.event.UserConnectEvent;
+import com.github.retrooper.packetevents.event.UserLoginEvent;
+import com.github.retrooper.packetevents.event.UserDisconnectEvent;
+import com.github.retrooper.packetevents.protocol.player.User;
+
+public class ConnectionListener extends PacketListenerAbstract {
+
+    @Override
+    public void onUserConnect(UserConnectEvent event) {
+        // Called when a player first connects (handshake phase)
+        User user = event.getUser();
+        System.out.println("User connecting from: " + user.getAddress());
+    }
+
+    @Override
+    public void onUserLogin(UserLoginEvent event) {
+        // Called when a player completes login (has UUID and name)
+        User user = event.getUser();
+        System.out.println("Player logged in: " + user.getName());
+        System.out.println("UUID: " + user.getUUID());
+        System.out.println("Client version: " + user.getClientVersion());
+
+        // You can access player-specific data here
+        Object player = event.getPlayer();
+    }
+
+    @Override
+    public void onUserDisconnect(UserDisconnectEvent event) {
+        // Called when a player disconnects
+        User user = event.getUser();
+        System.out.println("Player disconnected: " + user.getName());
+
+        // Cleanup any player-specific data
+        cleanupPlayerData(user);
+    }
+
+    private void cleanupPlayerData(User user) {
+        // Custom cleanup logic
+    }
+}
+```
+
+## EventManager Configuration
+
+Configure and manage the event listener system
+
+```java
+import com.github.retrooper.packetevents.event.EventManager;
+import com.github.retrooper.packetevents.event.PacketListener;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
+
+public class EventManagerExample {
+
+    public void setupEventManager() {
+        EventManager eventManager = PacketEvents.getAPI().getEventManager();
+
+        // Register listener with default priority
+        PacketListener listener1 = new MyPacketListener();
+        eventManager.registerListener(listener1, PacketListenerPriority.NORMAL);
+
+        // Register multiple listeners efficiently
+        eventManager.registerListeners(
+            new HighPriorityListener(),
+            new NormalPriorityListener(),
+            new MonitorListener()
+        );
+
+        // Unregister specific listeners
+        eventManager.unregisterListener(listener1);
+
+        // Unregister multiple listeners
+        PacketListenerCommon[] listeners = {
+            new ListenerA(),
+            new ListenerB()
+        };
+        eventManager.registerListeners(listeners);
+        // Later...
+        eventManager.unregisterListeners(listeners);
+
+        // Clear all listeners (typically only for shutdown)
+        eventManager.unregisterAllListeners();
+    }
+
+    // Listener priorities determine execution order:
+    // LOWEST -> LOW -> NORMAL -> HIGH -> HIGHEST -> MONITOR
+
+    static class HighPriorityListener extends PacketListenerAbstract {
+        public HighPriorityListener() {
+            super(PacketListenerPriority.HIGH);
+        }
+    }
+
+    static class MonitorListener extends PacketListenerAbstract {
+        public MonitorListener() {
+            super(PacketListenerPriority.MONITOR);
+        }
+
+        @Override
+        public void onPacketSend(PacketSendEvent event) {
+            // Monitor listeners should not modify packets
+            // Use for logging/auditing only
+            if (!event.isCancelled()) {
+                logPacket(event);
+            }
+        }
+
+        private void logPacket(PacketSendEvent event) {
+            // Logging logic
+        }
+    }
+}
+```
+
+## Summary and Use Cases
+
+PacketEvents excels in scenarios requiring deep network protocol access for Minecraft servers. Primary use cases include anti-cheat systems that analyze player movement packets to detect impossible movements or flying, chat moderation plugins that filter or modify messages before delivery, custom game mechanics that require packet-level manipulation (such as custom entities, blocks, or UI elements), protocol bridges for cross-version compatibility, and network debugging tools. The library's event-driven architecture with priority-based listener ordering allows multiple plugins to coexist and process the same packets in a controlled sequence. Developers benefit from automatic protocol translation across Minecraft versions, comprehensive packet wrapper classes that handle serialization complexity, and platform independence supporting Spigot, Paper, BungeeCord, Velocity, Sponge, and Fabric.
+
+Integration patterns typically involve registering listeners during plugin initialization with appropriate priorities based on whether the listener needs to modify packets (use HIGH or HIGHEST) or merely observe them (use MONITOR). The library handles channel injection automatically through Netty, inserting handlers into the network pipeline to intercept packets before vanilla processing. Best practices include using wrapper classes instead of raw packet reading for type safety and version compatibility, checking protocol versions before reading version-specific fields, leveraging the `markForReEncode()` method when modifying outbound packets, and properly managing listener lifecycle by unregistering during plugin shutdown. The library's modular design allows it to serve as a foundation for larger frameworks, with many popular plugins building their packet handling infrastructure on top of PacketEvents for reliable cross-version network protocol access.

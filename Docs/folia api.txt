@@ -1,0 +1,503 @@
+# Folia - Regionised Multithreading Minecraft Server
+
+Folia is a fork of Paper that introduces regionised multithreading to Minecraft dedicated servers. Instead of running on a single main thread, Folia divides the server world into independent regions, each with its own tick loop running in parallel on a thread pool. This architecture enables servers with many spread-out players (like skyblock or SMP servers) to scale performance across multiple CPU cores, with optimal performance on systems with 16+ cores.
+
+The project fundamentally changes how Minecraft servers operate by eliminating the single main thread bottleneck. Each region ticks at the standard 20 TPS rate but independently of other regions, allowing true parallel execution. This requires plugins to be explicitly marked as Folia-compatible (`folia-supported: true` in plugin.yml) and to use new scheduling APIs (RegionScheduler, EntityScheduler, GlobalRegionScheduler, AsyncScheduler) instead of the deprecated BukkitScheduler. Folia maintains compatibility with the Paper ecosystem while providing a path for high-player-count servers to leverage modern multi-core processors.
+
+## APIs and Key Functions
+
+### Maven Dependency Configuration
+
+Add the PaperMC repository and Folia API dependency to your plugin project to develop Folia-compatible plugins.
+
+```xml
+<!-- Add to pom.xml -->
+<repositories>
+    <repository>
+        <id>papermc</id>
+        <url>https://repo.papermc.io/repository/maven-public/</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>dev.folia</groupId>
+        <artifactId>folia-api</artifactId>
+        <version>1.21.11-R0.1-SNAPSHOT</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+```
+
+### Plugin Compatibility Flag
+
+Mark your plugin as Folia-compatible by adding the `folia-supported` flag to prevent load failures on Folia servers.
+
+```yaml
+# plugin.yml
+name: MyPlugin
+version: 1.0.0
+main: com.example.MyPlugin
+api-version: '1.21.11'
+folia-supported: true
+```
+
+### Region Scheduler API
+
+Schedule tasks to execute on the region that owns a specific location, replacing location-based BukkitScheduler usage.
+
+```java
+import io.papermc.paper.threadedregions.scheduler.RegionScheduler;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.plugin.Plugin;
+
+public class RegionSchedulerExample {
+    private final Plugin plugin;
+
+    public RegionSchedulerExample(Plugin plugin) {
+        this.plugin = plugin;
+    }
+
+    public void scheduleRegionTask(World world, int chunkX, int chunkZ) {
+        RegionScheduler scheduler = Bukkit.getServer().getRegionScheduler();
+
+        // Execute task once on the region owning this chunk
+        scheduler.execute(plugin, world, chunkX, chunkZ, () -> {
+            // This runs on the thread that owns the region
+            Location loc = new Location(world, chunkX * 16, 64, chunkZ * 16);
+            world.setBlockData(loc, Material.STONE.createBlockData());
+        });
+
+        // Schedule delayed task (runs after 20 ticks)
+        scheduler.runDelayed(plugin, world, chunkX, chunkZ, (task) -> {
+            // Execute after delay
+            Bukkit.getLogger().info("Task executed after 1 second");
+        }, 20L);
+
+        // Schedule repeating task (runs every 10 ticks)
+        scheduler.runAtFixedRate(plugin, world, chunkX, chunkZ, (task) -> {
+            // Repeating logic here
+            if (someCondition) {
+                task.cancel(); // Cancel when done
+            }
+        }, 10L, 10L); // initial delay, period
+    }
+}
+```
+
+### Entity Scheduler API
+
+Schedule tasks to execute on the region that owns a specific entity, ensuring thread-safe entity interactions.
+
+```java
+import io.papermc.paper.threadedregions.scheduler.EntityScheduler;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Entity;
+import org.bukkit.plugin.Plugin;
+
+public class EntitySchedulerExample {
+    private final Plugin plugin;
+
+    public EntitySchedulerExample(Plugin plugin) {
+        this.plugin = plugin;
+    }
+
+    public void scheduleEntityTask(Player player) {
+        EntityScheduler scheduler = player.getScheduler();
+
+        // Execute task on the entity's region
+        scheduler.execute(plugin, () -> {
+            // Safe to modify player data here
+            player.sendMessage("Task executed on your region!");
+            player.setHealth(20.0);
+        }, null, 0L);
+
+        // Schedule with delay
+        scheduler.runDelayed(plugin, (task) -> {
+            if (player.isOnline()) {
+                player.teleportAsync(player.getBedSpawnLocation());
+            }
+        }, null, 100L); // 5 seconds
+
+        // Repeating task following the entity
+        scheduler.runAtFixedRate(plugin, (task) -> {
+            // Check entity state periodically
+            if (!player.isOnline()) {
+                task.cancel();
+                return;
+            }
+            player.sendActionBar("Health: " + player.getHealth());
+        }, null, 1L, 20L); // Every second
+    }
+
+    public void scheduleForAnyEntity(Entity entity) {
+        entity.getScheduler().execute(plugin, () -> {
+            // Runs on the region owning this entity
+            entity.setGravity(false);
+        }, null, 0L);
+    }
+}
+```
+
+### Global Region Scheduler API
+
+Schedule tasks to execute on the global region, suitable for server-wide operations that don't involve world data.
+
+```java
+import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
+
+public class GlobalSchedulerExample {
+    private final Plugin plugin;
+
+    public GlobalSchedulerExample(Plugin plugin) {
+        this.plugin = plugin;
+    }
+
+    public void scheduleGlobalTask() {
+        GlobalRegionScheduler scheduler = Bukkit.getServer().getGlobalRegionScheduler();
+
+        // Execute once on global region
+        scheduler.execute(plugin, () -> {
+            // Safe for global operations (no world/entity access)
+            Bukkit.getLogger().info("Global task executed");
+        });
+
+        // Delayed global task
+        scheduler.runDelayed(plugin, (task) -> {
+            // Perform global maintenance
+            performDatabaseCleanup();
+        }, 6000L); // 5 minutes
+
+        // Repeating global task
+        scheduler.runAtFixedRate(plugin, (task) -> {
+            // Periodic server-wide checks
+            int playerCount = Bukkit.getOnlinePlayers().size();
+            if (playerCount == 0) {
+                // Auto-save when empty
+                Bukkit.getLogger().info("Server empty, saving...");
+            }
+        }, 1200L, 1200L); // Every minute
+    }
+
+    private void performDatabaseCleanup() {
+        // Database operations safe on global region
+    }
+}
+```
+
+### Async Scheduler API
+
+Schedule asynchronous tasks that run off the main tick threads, suitable for I/O operations and heavy computations.
+
+```java
+import io.papermc.paper.threadedregions.scheduler.AsyncScheduler;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
+import java.util.concurrent.TimeUnit;
+
+public class AsyncSchedulerExample {
+    private final Plugin plugin;
+
+    public AsyncSchedulerExample(Plugin plugin) {
+        this.plugin = plugin;
+    }
+
+    public void scheduleAsyncTask() {
+        AsyncScheduler scheduler = Bukkit.getServer().getAsyncScheduler();
+
+        // Execute async task immediately
+        scheduler.runNow(plugin, (task) -> {
+            // Safe for I/O and heavy computation
+            fetchDataFromDatabase();
+        });
+
+        // Delayed async task
+        scheduler.runDelayed(plugin, (task) -> {
+            // HTTP request or file I/O
+            savePlayerDataToFile();
+        }, 50L, TimeUnit.MILLISECONDS);
+
+        // Repeating async task
+        scheduler.runAtFixedRate(plugin, (task) -> {
+            // Periodic background operations
+            try {
+                checkWebhookStatus();
+            } catch (Exception e) {
+                Bukkit.getLogger().warning("Webhook check failed: " + e.getMessage());
+            }
+        }, 30L, 30L, TimeUnit.SECONDS);
+    }
+
+    private void fetchDataFromDatabase() {
+        // Database query implementation
+    }
+
+    private void savePlayerDataToFile() {
+        // File I/O implementation
+    }
+
+    private void checkWebhookStatus() {
+        // HTTP request implementation
+    }
+
+    public void cancelAllAsyncTasks() {
+        // Cancel all async tasks for this plugin
+        Bukkit.getServer().getAsyncScheduler().cancelTasks(plugin);
+    }
+}
+```
+
+### Region Ownership Checking
+
+Verify that code is executing on the correct thread for a given location or entity before accessing world data.
+
+```java
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
+
+public class RegionOwnershipExample {
+
+    public void checkRegionOwnership(World world, int chunkX, int chunkZ) {
+        // Check if current thread owns the region
+        if (Bukkit.isOwnedByCurrentRegion(world, chunkX, chunkZ)) {
+            // Safe to access chunk data
+            world.getChunkAt(chunkX, chunkZ).setInhabitedTime(1000L);
+        } else {
+            // Must schedule task to correct region
+            Bukkit.getRegionScheduler().execute(plugin, world, chunkX, chunkZ, () -> {
+                world.getChunkAt(chunkX, chunkZ).setInhabitedTime(1000L);
+            });
+        }
+    }
+
+    public void checkLocationOwnership(Location location) {
+        if (Bukkit.isOwnedByCurrentRegion(location)) {
+            // Safe to modify blocks at this location
+            location.getBlock().setType(Material.DIAMOND_BLOCK);
+        } else {
+            throw new IllegalStateException("Cannot modify blocks outside owned region");
+        }
+    }
+
+    public void checkEntityOwnership(Entity entity) {
+        if (Bukkit.isOwnedByCurrentRegion(entity)) {
+            // Safe to modify entity
+            entity.setCustomName("Modified Entity");
+        }
+    }
+
+    public void checkGlobalThread() {
+        if (Bukkit.isGlobalTickThread()) {
+            // Running on global region thread
+            // Safe for global operations only
+        }
+    }
+}
+```
+
+### Region TPS Monitoring
+
+Query the tick performance of specific regions to monitor server health and identify performance issues.
+
+```java
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.Chunk;
+
+public class RegionTPSExample {
+
+    public void checkRegionPerformance(Location location) {
+        // Get TPS for region owning this location
+        double[] tps = Bukkit.getRegionTPS(location);
+
+        if (tps != null) {
+            // Returns array: [5s, 15s, 1m, 5m, 15m]
+            double tps5s = tps[0];
+            double tps15s = tps[1];
+            double tps1m = tps[2];
+            double tps5m = tps[3];
+            double tps15m = tps[4];
+
+            Bukkit.getLogger().info(String.format(
+                "Region TPS - 5s: %.2f, 15s: %.2f, 1m: %.2f, 5m: %.2f, 15m: %.2f",
+                tps5s, tps15s, tps1m, tps5m, tps15m
+            ));
+
+            if (tps1m < 15.0) {
+                Bukkit.getLogger().warning("Region performance degraded!");
+            }
+        } else {
+            Bukkit.getLogger().warning("No region owns this location");
+        }
+    }
+
+    public void checkChunkRegionTPS(Chunk chunk) {
+        double[] tps = Bukkit.getRegionTPS(chunk);
+
+        if (tps != null) {
+            double avgTps = (tps[0] + tps[1] + tps[2] + tps[3] + tps[4]) / 5.0;
+            chunk.getWorld().sendMessage(
+                "Chunk region average TPS: " + String.format("%.2f", avgTps)
+            );
+        }
+    }
+
+    public void monitorWorldPerformance(World world, int centerX, int centerZ, int radius) {
+        // Monitor multiple regions in an area
+        for (int x = centerX - radius; x <= centerX + radius; x++) {
+            for (int z = centerZ - radius; z <= centerZ + radius; z++) {
+                double[] tps = Bukkit.getRegionTPS(world, x, z);
+
+                if (tps != null && tps[2] < 15.0) { // 1-minute average
+                    Bukkit.getLogger().warning(String.format(
+                        "Poor performance at chunk [%d, %d]: %.2f TPS",
+                        x, z, tps[2]
+                    ));
+                }
+            }
+        }
+    }
+}
+```
+
+### Thread-Safe Async Teleportation
+
+Use async teleportation methods instead of synchronous Entity#teleport which is permanently broken in Folia.
+
+```java
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import java.util.concurrent.CompletableFuture;
+
+public class AsyncTeleportExample {
+
+    public void teleportPlayer(Player player, Location destination) {
+        // NEVER use player.teleport() - it's broken in Folia
+        // ALWAYS use teleportAsync()
+
+        CompletableFuture<Boolean> future = player.teleportAsync(destination);
+
+        future.thenAccept(success -> {
+            if (success) {
+                // Teleport succeeded
+                player.sendMessage("Teleported successfully!");
+            } else {
+                // Teleport failed
+                player.sendMessage("Teleportation failed!");
+            }
+        }).exceptionally(ex -> {
+            player.sendMessage("Error during teleportation: " + ex.getMessage());
+            return null;
+        });
+    }
+
+    public void teleportWithCause(Player player, Location destination) {
+        player.teleportAsync(destination, PlayerTeleportEvent.TeleportCause.PLUGIN)
+            .thenAccept(success -> {
+                if (success) {
+                    // Schedule task on player's new region
+                    player.getScheduler().execute(plugin, () -> {
+                        player.sendTitle("Arrived!", "Welcome to new location", 10, 70, 20);
+                    }, null, 1L);
+                }
+            });
+    }
+
+    public CompletableFuture<Boolean> chainTeleports(Player player, Location waypoint, Location finalDest) {
+        // Chain multiple async teleports
+        return player.teleportAsync(waypoint)
+            .thenCompose(success -> {
+                if (success) {
+                    // Wait 2 seconds then teleport again
+                    return CompletableFuture.supplyAsync(() -> {
+                        try {
+                            Thread.sleep(2000);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return true;
+                    }).thenCompose(v -> player.teleportAsync(finalDest));
+                }
+                return CompletableFuture.completedFuture(false);
+            });
+    }
+}
+```
+
+### Gradle Build Configuration
+
+Configure your build system to properly fork from Paper and apply Folia patches using PaperWeight.
+
+```kotlin
+// build.gradle.kts
+import io.papermc.paperweight.tasks.RebuildGitPatches
+
+plugins {
+    java
+    id("io.papermc.paperweight.patcher") version "2.0.0-beta.19"
+}
+
+paperweight {
+    upstreams.paper {
+        ref = providers.gradleProperty("paperRef")
+
+        patchFile {
+            path = "paper-server/build.gradle.kts"
+            outputFile = file("folia-server/build.gradle.kts")
+            patchFile = file("folia-server/build.gradle.kts.patch")
+        }
+        patchFile {
+            path = "paper-api/build.gradle.kts"
+            outputFile = file("folia-api/build.gradle.kts")
+            patchFile = file("folia-api/build.gradle.kts.patch")
+        }
+        patchDir("paperApi") {
+            upstreamPath = "paper-api"
+            excludes = setOf("build.gradle.kts")
+            patchesDir = file("folia-api/paper-patches")
+            outputDir = file("paper-api")
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven("https://repo.papermc.io/repository/maven-public/")
+}
+
+allprojects {
+    tasks.withType<RebuildGitPatches>().configureEach {
+        filterPatches = false
+    }
+}
+```
+
+```properties
+# gradle.properties
+group=dev.folia
+version=1.21.11-R0.1-SNAPSHOT
+mcVersion=1.21.11
+# This is the current API version for use in (paper-)plugin.yml files
+# During snapshot cycles this should be the anticipated version of the release target
+apiVersion=1.21.11
+
+paperRef=cd445fdb26d7b159f5c2726acee5db113a3bbff9
+
+org.gradle.configuration-cache=true
+org.gradle.caching=true
+org.gradle.parallel=true
+```
+
+## Summary and Use Cases
+
+Folia is designed for Minecraft servers that naturally spread players across large areas, making it ideal for skyblock servers, survival multiplayer (SMP) servers, and other game modes where players operate in distinct geographic regions. The regionised multithreading architecture shines on high-player-count servers (200+ players) running on modern hardware with 16 or more CPU cores. Server administrators should pre-generate worlds to reduce chunk generation overhead, and carefully tune thread allocation for netty I/O, chunk system workers, and region tick threads to achieve optimal performance. The project represents a fundamental architectural shift rather than a simple optimization, requiring complete plugin ecosystem migration.
+
+Plugin developers must adapt to Folia's threading model by abandoning the BukkitScheduler in favor of region-aware schedulers (RegionScheduler, EntityScheduler, GlobalRegionScheduler, AsyncScheduler) that ensure code executes on the correct thread context. All entity teleportation must use async methods, and plugins must explicitly declare Folia support via `folia-supported: true` in plugin.yml. Thread-safety becomes paramount as events fire in parallel across regions - developers should leverage ownership checks (`Bukkit.isOwnedByCurrentRegion()`) and design plugins with concurrent data access patterns in mind. While this increases development complexity, it unlocks true parallel scaling for Minecraft servers, enabling player counts and world sizes previously impossible on single-threaded architectures.

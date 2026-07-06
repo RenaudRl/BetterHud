@@ -1,0 +1,9 @@
+# Tutoriel d'Installation Screen Effects
+
+Pour installer les effets d'écran en respectant les conventions de BetterHUD :
+
+1. Prenez la spritesheet verticale d'animation (`.png`) et déposez-la dans `assets/screeneffects/`.
+2. Déclarez l'image dans le dossier `images/` (voir le fichier d'exemple `screeneffect.yml` fourni). Utilisez toujours `type: single` pour l'image.
+3. Créez votre effet animé dans le dossier `screen_effects/` (voir l'exemple `example.yml` fourni). L'option `image` doit pointer vers la clé créée dans `images/`.
+
+Une fois ces trois dossiers (`assets`, `images`, `screen_effects`) copiés et fusionnés dans `plugins/BetterHUD/`, utilisez la commande `/betterhud reload` puis `/betterhud screeneffect play <joueur> <nom_effet>` pour le jouer !

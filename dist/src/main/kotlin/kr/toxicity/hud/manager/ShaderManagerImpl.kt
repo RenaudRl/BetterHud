@@ -126,6 +126,65 @@ object ShaderManagerImpl : BetterHudManager, ShaderManager {
                 }
             }
             if (yaml.getAsBoolean("disable-level-text", false)) replaceSet += "HideExp"
+
+            // BTC Minimap
+            val minimap = yaml["minimap"]?.asObject()
+            if (minimap?.getAsBoolean("enabled", true) == true) {
+                val texSize = minimap["tex-size"]?.asArray()
+                constants["MINIMAP_TEX_SIZE_X"] = texSize?.get(0)?.asInt()?.toString() ?: "2048"
+                constants["MINIMAP_TEX_SIZE_Y"] = texSize?.get(1)?.asInt()?.toString() ?: "2048"
+                constants["MINIMAP_DISPLAY_SIZE"] = minimap.getAsInt("display-size", 100).toString() + "."
+                val padding = minimap["padding"]?.asArray()
+                constants["MINIMAP_PADDING_X"] = padding?.get(0)?.asInt()?.toString()?.plus(".") ?: "20."
+                constants["MINIMAP_PADDING_Y"] = padding?.get(1)?.asInt()?.toString()?.plus(".") ?: "20."
+                val alignStr = minimap.getString("align", "TOP_LEFT").uppercase()
+                val (alignX, alignY) = when (alignStr) {
+                    "TOP_RIGHT" -> "RIGHT" to "TOP"
+                    "BOTTOM_LEFT" -> "LEFT" to "BOTTOM"
+                    "BOTTOM_RIGHT" -> "RIGHT" to "BOTTOM"
+                    else -> "LEFT" to "TOP"
+                }
+                constants["MINIMAP_ALIGN_X"] = alignX
+                constants["MINIMAP_ALIGN_Y"] = alignY
+                constants["MINIMAP_CENTER_X"] = "0"
+                constants["MINIMAP_CENTER_Z"] = "0"
+                constants["MINIMAP_BLOCKS_VISIBLE"] = minimap.getAsFloat("blocks-visible", 64f).toString() + "."
+                constants["MINIMAP_BLOCKS_PER_PX"] = minimap.getAsFloat("blocks-per-pixel", 1.0f).toString() + "."
+                constants["MINIMAP_FRAME_PX"] = minimap.getAsInt("frame-size", 2).toString() + "."
+                constants["MINIMAP_IS_CIRCULAR"] = minimap.getAsBoolean("circular", true).toString()
+            }
+
+            // BTC Extra Shaders
+            val extraShaders = yaml["extra-shaders"]?.asObject()
+            if (extraShaders != null) {
+                fun copyExtraShader(name: String, path: String, targetFolder: List<String>) {
+                    BOOTSTRAP.resource("extra-shaders/$name/$path")?.buffered()?.use { input ->
+                        val bytes = input.readAllBytes()
+                        PackGenerator.addTask(targetFolder + path) { bytes }
+                    }
+                }
+                
+                if (extraShaders.getAsBoolean("simplified-glowing", false)) {
+                    copyExtraShader("simplified-glowing", "entity_outline.json", resource.shaders + "post")
+                }
+                
+                if (extraShaders["wavy-water"]?.asObject()?.getAsBoolean("enabled", false) == true) {
+                    copyExtraShader("wavy-water", "rendertype_translucent.json", resource.core)
+                    copyExtraShader("wavy-water", "rendertype_translucent.vsh", resource.core)
+                }
+                
+                if (extraShaders.getAsBoolean("custom-particles", false)) {
+                    copyExtraShader("custom-particles", "particle.json", resource.core)
+                    copyExtraShader("custom-particles", "particle.fsh", resource.core)
+                    copyExtraShader("custom-particles", "particle.vsh", resource.core)
+                }
+                
+                if (extraShaders.getAsBoolean("chat-bar-remover", false)) {
+                    copyExtraShader("chat-bar-remover", "position_color.json", resource.core)
+                    copyExtraShader("chat-bar-remover", "position_color.fsh", resource.core)
+                }
+            }
+
             compileShader(resource)
         }.handleFailure(info) {
             "Unable to load shader.yml"

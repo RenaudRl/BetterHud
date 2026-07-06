@@ -1,0 +1,736 @@
+# ItemsAdder API
+
+ItemsAdder is a Java API for Minecraft Spigot/Paper servers that enables developers to create and manage custom items, blocks, furniture, crops, and other game elements with custom models and textures. The API provides method signatures for integrating custom content into Minecraft server plugins, allowing developers to extend vanilla Minecraft functionality with resource pack integration.
+
+This repository contains only the API interface definitions, not the implementation. Developers use this API to build plugins that interact with the ItemsAdder plugin, which must be purchased and installed separately. The API supports asynchronous loading, comprehensive event handling, custom durability systems, HUD rendering, font images, and extensive customization options for Minecraft server content creators.
+
+## CustomStack - Create and Retrieve Custom Items
+
+Get a custom item instance by namespaced ID to give to players or check existing items.
+
+```java
+import dev.lone.itemsadder.api.CustomStack;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.player.PlayerInteractEvent;
+
+public class CustomItemHandler {
+    // Get a custom item and give it to a player
+    public void giveCustomItem(Player player, String itemId) {
+        CustomStack customStack = CustomStack.getInstance("itemsadder:ruby");
+        if (customStack != null) {
+            ItemStack item = customStack.getItemStack();
+            player.getInventory().addItem(item);
+        }
+    }
+
+    // Check if player is holding a custom item
+    @EventHandler
+    public void onInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        ItemStack heldItem = player.getInventory().getItemInMainHand();
+
+        CustomStack customStack = CustomStack.byItemStack(heldItem);
+        if (customStack != null) {
+            String namespacedId = customStack.getNamespacedID();
+            String displayName = customStack.getDisplayName();
+
+            player.sendMessage("You're holding: " + displayName + " (" + namespacedId + ")");
+
+            // Check if item has custom durability
+            if (customStack.hasCustomDurability()) {
+                int durability = customStack.getDurability();
+                int maxDurability = customStack.getMaxDurability();
+                player.sendMessage("Durability: " + durability + "/" + maxDurability);
+            }
+        }
+    }
+
+    // Modify custom item attributes
+    public void enhanceWeapon(CustomStack weapon) {
+        weapon.setAttributeModifier("attack_damage", "mainhand", 15.0);
+        weapon.setAttributeModifier("attack_speed", "mainhand", 2.5);
+        weapon.updateAttackDamageLore("mainhand");
+        weapon.updateAttackSpeedLore("mainhand");
+    }
+}
+```
+
+## CustomBlock - Place and Manage Custom Blocks
+
+Place custom blocks in the world and retrieve information about already placed blocks.
+
+```java
+import dev.lone.itemsadder.api.CustomBlock;
+import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.inventory.ItemStack;
+import java.util.List;
+
+public class CustomBlockHandler {
+    // Place a custom block at a location
+    public void placeCustomBlock(Location location) {
+        CustomBlock customBlock = CustomBlock.place("itemsadder:ruby_ore", location);
+        if (customBlock != null) {
+            // Set light level for glowing blocks
+            customBlock.setCurrentLightLevel(15);
+
+            // Play placement sound
+            customBlock.playPlaceSound();
+
+            System.out.println("Placed block: " + customBlock.getNamespacedID());
+            System.out.println("Original light level: " + customBlock.getOriginalLightLevel());
+        }
+    }
+
+    // Handle custom block breaking
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        CustomBlock customBlock = CustomBlock.byAlreadyPlaced(block);
+
+        if (customBlock != null) {
+            Player player = event.getPlayer();
+            ItemStack tool = player.getInventory().getItemInMainHand();
+
+            // Get custom loot for this block
+            List<ItemStack> loot = customBlock.getLoot(tool, false);
+
+            // Play break effects
+            customBlock.playBreakEffect();
+
+            // Drop loot
+            Location dropLocation = block.getLocation();
+            for (ItemStack item : loot) {
+                dropLocation.getWorld().dropItemNaturally(dropLocation, item);
+            }
+
+            // Remove the custom block
+            customBlock.remove();
+
+            player.sendMessage("Broke custom block: " + customBlock.getNamespacedID());
+        }
+    }
+
+    // Check if a location has a custom block
+    public boolean isCustomBlock(Block block) {
+        return CustomBlock.byAlreadyPlaced(block) != null;
+    }
+}
+```
+
+## CustomFurniture - Spawn and Control Furniture Entities
+
+Spawn decorative furniture entities with custom models in the world.
+
+```java
+import dev.lone.itemsadder.api.CustomFurniture;
+import org.bukkit.Location;
+import org.bukkit.Color;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+
+public class FurnitureHandler {
+    // Spawn furniture at a block location
+    public void spawnFurniture(Block block) {
+        CustomFurniture furniture = CustomFurniture.spawn("itemsadder:oak_chair", block);
+        if (furniture != null) {
+            // Set custom light level
+            furniture.setCurrentLightLevel(8);
+
+            // Set color for colorable furniture
+            furniture.setColor(Color.RED);
+
+            System.out.println("Spawned furniture: " + furniture.getNamespacedID());
+        }
+    }
+
+    // Spawn furniture at precise location (non-solid)
+    public void spawnPreciseFurniture(Location location) {
+        CustomFurniture furniture = CustomFurniture.spawnPreciseNonSolid("itemsadder:modern_lamp", location);
+        if (furniture != null) {
+            Entity entity = furniture.getEntity();
+            System.out.println("Spawned at: " + entity.getLocation());
+        }
+    }
+
+    // Handle furniture interaction
+    @EventHandler
+    public void onFurnitureInteract(PlayerInteractAtEntityEvent event) {
+        Entity entity = event.getRightClicked();
+        CustomFurniture furniture = CustomFurniture.byAlreadySpawned(entity);
+
+        if (furniture != null) {
+            Player player = event.getPlayer();
+
+            // Replace with different furniture model
+            furniture.replaceFurniture("itemsadder:red_chair", Color.BLUE);
+
+            player.sendMessage("Interacted with: " + furniture.getNamespacedID());
+
+            // Teleport furniture to player's location
+            furniture.teleport(player.getLocation());
+
+            // Or remove furniture with item drop
+            // furniture.remove(true);
+        }
+    }
+
+    // Move furniture to new location
+    public void moveFurniture(CustomFurniture furniture, Location newLocation) {
+        furniture.teleport(newLocation);
+    }
+}
+```
+
+## CustomCrop - Manage Custom Farmable Crops
+
+Place and manage custom crops with growth stages.
+
+```java
+import dev.lone.itemsadder.api.CustomCrop;
+import dev.lone.itemsadder.api.CustomStack;
+import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+import java.util.List;
+
+public class CropHandler {
+    // Plant a custom crop
+    public void plantCrop(Location location) {
+        CustomCrop crop = CustomCrop.place("itemsadder:tomato_seeds", location);
+        if (crop != null) {
+            // Make it fully grown instantly
+            crop.setFullyGrown();
+
+            System.out.println("Planted crop at age: " + crop.getAge());
+            System.out.println("Max age: " + crop.getMaxAge());
+
+            // Get seed information
+            CustomStack seed = crop.getSeed();
+            System.out.println("Seed: " + seed.getNamespacedID());
+        }
+    }
+
+    // Handle crop interaction (harvest)
+    @EventHandler
+    public void onCropInteract(PlayerInteractEvent event) {
+        Block block = event.getClickedBlock();
+        if (block == null) return;
+
+        CustomCrop crop = CustomCrop.byAlreadyPlaced(block);
+        if (crop != null) {
+            Player player = event.getPlayer();
+
+            if (crop.isFullyGrown()) {
+                // Get loot from fully grown crop
+                ItemStack tool = player.getInventory().getItemInMainHand();
+                List<ItemStack> loot = crop.getLoot(tool);
+
+                // Drop loot
+                Location dropLocation = block.getLocation();
+                for (ItemStack item : loot) {
+                    dropLocation.getWorld().dropItemNaturally(dropLocation, item);
+                }
+
+                player.sendMessage("Harvested fully grown crop!");
+
+                // Reset to age 0 or remove
+                crop.setAge(0);
+            } else {
+                player.sendMessage("Crop not ready. Age: " + crop.getAge() + "/" + crop.getMaxAge());
+
+                // Manually increment age
+                crop.incrementAge();
+            }
+        }
+    }
+
+    // Check if an item is a seed
+    public boolean isSeed(ItemStack item) {
+        return CustomCrop.isSeed(item);
+    }
+}
+```
+
+## ItemsAdderLoadDataEvent - Wait for Plugin Load
+
+Listen for this event to ensure ItemsAdder has finished loading before accessing custom items.
+
+```java
+import dev.lone.itemsadder.api.Events.ItemsAdderLoadDataEvent;
+import dev.lone.itemsadder.api.CustomStack;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.plugin.java.JavaPlugin;
+import java.util.List;
+
+public class ItemsAdderIntegration implements Listener {
+    private JavaPlugin plugin;
+    private boolean itemsAdderLoaded = false;
+
+    public ItemsAdderIntegration(JavaPlugin plugin) {
+        this.plugin = plugin;
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
+
+    @EventHandler
+    public void onItemsAdderLoad(ItemsAdderLoadDataEvent event) {
+        itemsAdderLoaded = true;
+
+        // Check the cause of the load event
+        ItemsAdderLoadDataEvent.Cause cause = event.getCause();
+
+        if (cause == ItemsAdderLoadDataEvent.Cause.FIRST_LOAD) {
+            plugin.getLogger().info("ItemsAdder loaded for the first time!");
+            initializeCustomItems();
+        } else if (cause == ItemsAdderLoadDataEvent.Cause.RELOAD) {
+            plugin.getLogger().info("ItemsAdder was reloaded!");
+            reinitializeCustomItems();
+        }
+    }
+
+    private void initializeCustomItems() {
+        // Safe to access items now
+        List<CustomStack> allItems = ItemsAdder.getAllItems();
+        plugin.getLogger().info("Total custom items: " + allItems.size());
+
+        // Get items by namespace
+        List<CustomStack> itemsAdderItems = ItemsAdder.getAllItems("itemsadder");
+        plugin.getLogger().info("ItemsAdder namespace items: " + itemsAdderItems.size());
+
+        // Check if specific items exist
+        if (CustomStack.isInRegistry("itemsadder:ruby")) {
+            plugin.getLogger().info("Ruby item is registered!");
+        }
+    }
+
+    private void reinitializeCustomItems() {
+        // Reload item references after ItemsAdder reload
+        plugin.getLogger().info("Reinitializing custom item references...");
+        initializeCustomItems();
+    }
+
+    public boolean isItemsAdderReady() {
+        return itemsAdderLoaded;
+    }
+}
+```
+
+## FontImageWrapper - Display Custom Images in Chat
+
+Replace placeholder text with custom font images in chat, titles, and action bars.
+
+```java
+import dev.lone.itemsadder.api.FontImages.FontImageWrapper;
+import org.bukkit.entity.Player;
+import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
+
+public class FontImageHandler {
+    // Replace font image placeholders in strings
+    public void sendCustomMessage(Player player, String message) {
+        // Input: "You found :ruby: x5!"
+        // Output: "You found [RUBY_IMAGE] x5!" (with actual unicode character)
+        String processedMessage = FontImageWrapper.replaceFontImages(message);
+        player.sendMessage(processedMessage);
+    }
+
+    // Replace with permission check
+    public void sendPermissionBasedMessage(Player player) {
+        String message = "Rare items: :diamond_special: :ruby: :emerald_rare:";
+
+        // Only replaces placeholders player has permission for
+        String processedMessage = FontImageWrapper.replaceFontImages(player, message);
+        player.sendMessage(processedMessage);
+    }
+
+    // Work with Adventure Components (Paper)
+    public void sendComponentMessage(Player player) {
+        Component component = Component.text("Status: :heart: :star: :coin:")
+            .color(TextColor.color(255, 255, 255));
+
+        Component processed = FontImageWrapper.replaceFontImages(component);
+        player.sendMessage(processed);
+    }
+
+    // Create custom HUD elements with offsets
+    public void createCustomHud(Player player) {
+        FontImageWrapper image = new FontImageWrapper("itemsadder:health_bar");
+
+        if (image.exists()) {
+            // Set color
+            image.setColor(ChatColor.RED);
+
+            // Set pixel offset for positioning
+            image.setOffset(-50);
+
+            // Get dimensions
+            int width = image.getWidth();
+            int height = image.getHeight();
+
+            // Get formatted string with color and reset
+            String imageString = image.getString();
+
+            player.sendMessage(imageString + " Health: 20/20");
+        }
+    }
+
+    // Apply pixel offset to align elements
+    public void createAlignedDisplay(Player player) {
+        String text = ":icon_1: :icon_2: :icon_3:";
+
+        // Shift entire string by 100 pixels
+        String offsetText = FontImageWrapper.applyPixelsOffsetToString(text, 100);
+
+        player.sendMessage(offsetText);
+    }
+
+    // List all available font images
+    public void listFontImages() {
+        java.util.Set<String> imageIds = FontImageWrapper.getNamespacedIdsInRegistry();
+
+        for (String id : imageIds) {
+            FontImageWrapper wrapper = FontImageWrapper.instance(id);
+            System.out.println("ID: " + id +
+                             " | Size: " + wrapper.getWidth() + "x" + wrapper.getHeight());
+        }
+    }
+}
+```
+
+## ItemsAdder Utility Methods
+
+Access resource pack URLs, play totem animations, and manage advanced features.
+
+```java
+import dev.lone.itemsadder.api.ItemsAdder;
+import org.bukkit.entity.Player;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.plugin.java.JavaPlugin;
+import java.util.List;
+
+public class ItemsAdderUtilities {
+    private JavaPlugin plugin;
+
+    public ItemsAdderUtilities(JavaPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    // Apply resource pack to player
+    public void applyResourcePack(Player player) {
+        ItemsAdder.applyResourcepack(player);
+        player.sendMessage("Applying ItemsAdder resource pack...");
+    }
+
+    // Get resource pack download URL
+    public void getResourcePackInfo() {
+        String url = ItemsAdder.getPackUrl(true);
+        if (url != null) {
+            System.out.println("Resource pack URL: " + url);
+        } else {
+            System.out.println("Resource pack not yet available");
+        }
+    }
+
+    // Play totem animation for custom item
+    public void playCustomAnimation(Player player, String animationId) {
+        // Delay by 1 tick if called after closing inventory
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                boolean success = ItemsAdder.playTotemAnimation(player, animationId);
+                if (success) {
+                    player.sendMessage("Playing animation: " + animationId);
+                } else {
+                    player.sendMessage("Invalid animation ID");
+                }
+            }
+        }.runTaskLater(plugin, 1L);
+    }
+
+    // Check if recipe is from ItemsAdder
+    public void checkCustomRecipe(NamespacedKey recipeKey) {
+        boolean isCustom = ItemsAdder.isCustomRecipe(recipeKey);
+        System.out.println("Is custom recipe: " + isCustom);
+
+        // Alternative with string
+        boolean isCustomStr = ItemsAdder.isCustomRecipe("itemsadder:ruby_sword");
+        System.out.println("Ruby sword recipe exists: " + isCustomStr);
+    }
+
+    // Get all items using specific material
+    public void getItemsByMaterial(Material material) {
+        List<CustomStack> items = ItemsAdder.getAllItems(material);
+
+        System.out.println("Custom items using " + material + ":");
+        for (CustomStack item : items) {
+            System.out.println("  - " + item.getNamespacedID());
+        }
+    }
+
+    // Check keep on death behavior
+    public void checkKeepOnDeath(ItemStack item) {
+        boolean keepOnDeath = ItemsAdder.hasKeepOnDeath(item);
+
+        if (keepOnDeath) {
+            System.out.println("This item will be kept on death");
+        }
+
+        // Check by namespaced ID
+        boolean rubyKeepsOnDeath = ItemsAdder.hasKeepOnDeath("itemsadder:ruby");
+        System.out.println("Ruby keeps on death: " + rubyKeepsOnDeath);
+    }
+
+    // Advanced: Inject item modifier
+    public void modifyItems() {
+        // Modify specific item
+        ItemsAdder.Advanced.injectItemModifier(plugin, "itemsadder:ruby",
+            (namespacedId, itemStack) -> {
+                // Customize the ItemStack
+                ItemMeta meta = itemStack.getItemMeta();
+                List<String> lore = meta.getLore();
+                if (lore == null) lore = new ArrayList<>();
+                lore.add(ChatColor.GOLD + "Modified by plugin!");
+                meta.setLore(lore);
+                itemStack.setItemMeta(meta);
+                return itemStack;
+            }
+        );
+
+        // Modify all items
+        ItemsAdder.Advanced.injectItemModifier(plugin,
+            (namespacedId, itemStack) -> {
+                // Apply global modifications
+                return itemStack;
+            }
+        );
+    }
+
+    // Get item model resource location
+    public void getModelPath(String itemId) {
+        String modelPath = ItemsAdder.Advanced.getItemModelResourceLocation(itemId);
+        if (modelPath != null) {
+            System.out.println("Model path: " + modelPath);
+        }
+    }
+}
+```
+
+## Custom Event Handling
+
+Handle events for custom blocks, furniture, and entity interactions.
+
+```java
+import dev.lone.itemsadder.api.Events.*;
+import dev.lone.itemsadder.api.CustomBlock;
+import dev.lone.itemsadder.api.CustomFurniture;
+import dev.lone.itemsadder.api.CustomStack;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
+
+public class CustomEventsHandler implements Listener {
+    // Handle custom block placement
+    @EventHandler
+    public void onCustomBlockPlace(CustomBlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        CustomBlock block = event.getCustomBlock();
+
+        player.sendMessage("Placed: " + block.getNamespacedID());
+
+        // Cancel placement under certain conditions
+        if (!player.hasPermission("custom.place." + block.getId())) {
+            event.setCancelled(true);
+            player.sendMessage("No permission to place this block!");
+        }
+    }
+
+    // Handle custom block breaking
+    @EventHandler
+    public void onCustomBlockBreak(CustomBlockBreakEvent event) {
+        Player player = event.getPlayer();
+        CustomBlock block = event.getCustomBlock();
+
+        // Check what tool was used
+        ItemStack tool = player.getInventory().getItemInMainHand();
+        CustomStack customTool = CustomStack.byItemStack(tool);
+
+        if (customTool != null) {
+            player.sendMessage("Broke " + block.getNamespacedID() +
+                             " with " + customTool.getNamespacedID());
+        }
+    }
+
+    // Handle custom block interaction
+    @EventHandler
+    public void onCustomBlockInteract(CustomBlockInteractEvent event) {
+        Player player = event.getPlayer();
+        CustomBlock block = event.getCustomBlock();
+
+        if (block.getNamespacedID().equals("itemsadder:custom_chest")) {
+            player.sendMessage("You interacted with a custom chest!");
+            // Open custom GUI or perform action
+        }
+    }
+
+    // Handle furniture placement
+    @EventHandler
+    public void onFurniturePlace(FurniturePlaceSuccessEvent event) {
+        Player player = event.getPlayer();
+        CustomFurniture furniture = event.getFurniture();
+
+        player.sendMessage("Successfully placed: " + furniture.getNamespacedID());
+    }
+
+    // Handle furniture interaction
+    @EventHandler
+    public void onFurnitureInteract(FurnitureInteractEvent event) {
+        Player player = event.getPlayer();
+        CustomFurniture furniture = event.getFurniture();
+
+        // Perform action based on furniture type
+        if (furniture.getNamespacedID().equals("itemsadder:chair")) {
+            // Make player sit
+            event.setCancelled(true); // Prevent default behavior
+            player.sendMessage("You sat on the chair!");
+        }
+    }
+
+    // Handle furniture breaking
+    @EventHandler
+    public void onFurnitureBreak(FurnitureBreakEvent event) {
+        Player player = event.getPlayer();
+        CustomFurniture furniture = event.getFurniture();
+
+        if (!player.hasPermission("furniture.break")) {
+            event.setCancelled(true);
+            player.sendMessage("You cannot break this furniture!");
+        }
+    }
+
+    // Handle custom entity death
+    @EventHandler
+    public void onCustomEntityDeath(CustomEntityDeathEvent event) {
+        Player killer = (Player) event.getKiller();
+        String entityId = event.getNamespacedID();
+
+        killer.sendMessage("You killed: " + entityId);
+
+        // Check what weapon was used
+        ItemStack weapon = killer.getInventory().getItemInMainHand();
+        CustomStack customWeapon = CustomStack.byItemStack(weapon);
+
+        if (customWeapon != null) {
+            // Reduce weapon durability
+            if (customWeapon.hasCustomDurability()) {
+                int durability = customWeapon.getDurability();
+                customWeapon.setDurability(durability - 1);
+            }
+        }
+    }
+
+    // Handle resource pack send
+    @EventHandler
+    public void onResourcePackSend(ResourcePackSendEvent event) {
+        Player player = event.getPlayer();
+        String packUrl = event.getUrl();
+
+        player.sendMessage("Downloading resource pack...");
+        System.out.println("Sending pack to " + player.getName() + ": " + packUrl);
+    }
+}
+```
+
+## PlayerHudsHolderWrapper - Manage Player HUDs
+
+Control custom HUD elements displayed to players.
+
+```java
+import dev.lone.itemsadder.api.FontImages.PlayerHudsHolderWrapper;
+import dev.lone.itemsadder.api.FontImages.PlayerCustomHudWrapper;
+import dev.lone.itemsadder.api.FontImages.PlayerQuantityHudWrapper;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.player.PlayerJoinEvent;
+
+public class HudManager {
+    // Initialize player HUD
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+
+        // Get player's HUD holder
+        PlayerHudsHolderWrapper hudsHolder = new PlayerHudsHolderWrapper(player);
+
+        if (hudsHolder.exists()) {
+            // Force recalculation of HUD offsets
+            hudsHolder.recalculateOffsets();
+
+            // Send initial update
+            hudsHolder.sendUpdate();
+        }
+    }
+
+    // Update player HUD dynamically
+    public void updatePlayerStats(Player player, int health, int mana) {
+        PlayerHudsHolderWrapper hudsHolder = new PlayerHudsHolderWrapper(player);
+
+        if (!hudsHolder.exists()) {
+            return;
+        }
+
+        // Update custom HUD with new values
+        // This assumes you have custom HUDs configured in ItemsAdder
+
+        // Recalculate positions after changes
+        hudsHolder.recalculateOffsets();
+
+        // Send update packet to player
+        hudsHolder.sendUpdate();
+    }
+
+    // High-frequency HUD updates
+    public void updateRealTimeHud(Player player) {
+        PlayerHudsHolderWrapper hudsHolder = new PlayerHudsHolderWrapper(player);
+
+        if (hudsHolder.exists()) {
+            // Be careful with high frequency updates - uses bandwidth
+            hudsHolder.sendUpdate();
+        }
+    }
+
+    // Refresh HUD after adding new elements
+    public void addCustomHudElement(Player player) {
+        PlayerHudsHolderWrapper hudsHolder = new PlayerHudsHolderWrapper(player);
+
+        if (hudsHolder.exists()) {
+            // After adding/removing font images to custom HUD
+            // Force recalculation
+            hudsHolder.recalculateOffsets();
+            hudsHolder.sendUpdate();
+        }
+    }
+}
+```
+
+## Use Cases and Integration Patterns
+
+The ItemsAdder API is primarily used for creating custom Minecraft server content through plugins that extend vanilla gameplay. Common use cases include custom RPG systems with unique weapons and armor, decorative furniture plugins for building servers, custom farming systems with special crops, and economy plugins featuring custom currency items. The API enables developers to create immersive server experiences by adding thousands of custom items without client-side mods, only requiring players to accept a resource pack. Always listen to `ItemsAdderLoadDataEvent` before accessing any custom items to ensure the plugin has finished its asynchronous loading process.
+
+Integration patterns follow a event-driven architecture where plugins register listeners for ItemsAdder events like `CustomBlockBreakEvent`, `FurnitureInteractEvent`, and `CustomEntityDeathEvent`. Use `CustomStack.getInstance()` to retrieve item templates from the registry and `CustomStack.byItemStack()` to identify custom items in player inventories. For blocks and furniture, use static placement methods like `CustomBlock.place()` and retrieve existing instances with `byAlreadyPlaced()` methods. HUD and font image systems provide real-time visual feedback using `PlayerHudsHolderWrapper` for managing display elements and `FontImageWrapper.replaceFontImages()` for chat integration. The API supports both Spigot and Paper servers with Adventure API components for modern text handling.

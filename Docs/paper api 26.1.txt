@@ -1,0 +1,1104 @@
+# Paper
+
+Paper is a high-performance Minecraft server implementation that extends and improves upon the Bukkit and Spigot APIs. It provides a comprehensive plugin development framework enabling developers to create server-side modifications, custom game mechanics, and administrative tools for Minecraft servers. Paper focuses on fixing gameplay inconsistencies, improving server performance, and offering an extensive API for interacting with all aspects of the Minecraft server.
+
+The Paper API is built around a plugin system where developers extend the `JavaPlugin` class to create plugins. The framework provides event-driven programming through listeners, command registration via both traditional Bukkit-style commands and modern Brigadier commands, task scheduling for synchronous and asynchronous operations, and direct access to game entities, worlds, inventories, and player data. Paper also includes Adventure API integration for rich text formatting and modern component-based messaging.
+
+## Creating a Basic Plugin
+
+The foundation of any Paper plugin is a class that extends `JavaPlugin`. This class serves as the entry point and lifecycle manager for your plugin.
+
+```java
+package com.example.myplugin;
+
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class MyPlugin extends JavaPlugin {
+
+    @Override
+    public void onEnable() {
+        // Called when the plugin is enabled
+        getLogger().info("MyPlugin has been enabled!");
+
+        // Save default config.yml from resources
+        saveDefaultConfig();
+
+        // Register event listeners
+        getServer().getPluginManager().registerEvents(new MyListener(), this);
+    }
+
+    @Override
+    public void onDisable() {
+        // Called when the plugin is disabled
+        getLogger().info("MyPlugin has been disabled!");
+    }
+}
+```
+
+## Plugin Configuration (paper-plugin.yml)
+
+Paper plugins use a YAML configuration file to define metadata, dependencies, and permissions. This file must be placed in the `src/main/resources` directory.
+
+```yaml
+name: MyPlugin
+version: 1.0.0
+main: com.example.myplugin.MyPlugin
+description: An example Paper plugin
+author: YourName
+api-version: "1.21"
+load: POSTWORLD
+dependencies:
+  server:
+    - name: Vault
+      required: false
+permissions:
+  myplugin.admin:
+    description: Allows access to admin commands
+    default: op
+  myplugin.use:
+    description: Allows basic plugin usage
+    default: true
+```
+
+## Event Handling
+
+Paper uses an event-driven architecture where plugins listen for and respond to game events. Events cover player actions, world changes, entity behavior, and server operations.
+
+```java
+package com.example.myplugin;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+
+public class MyListener implements Listener {
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+
+        // Set custom join message using Adventure API
+        event.joinMessage(Component.text()
+            .append(Component.text("[+] ", NamedTextColor.GREEN))
+            .append(player.displayName())
+            .append(Component.text(" joined the server!", NamedTextColor.GRAY))
+            .build());
+
+        // Send welcome message to the player
+        player.sendMessage(Component.text("Welcome to the server!", NamedTextColor.GOLD));
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        event.quitMessage(Component.text()
+            .append(Component.text("[-] ", NamedTextColor.RED))
+            .append(event.getPlayer().displayName())
+            .append(Component.text(" left the server", NamedTextColor.GRAY))
+            .build());
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getItem() != null && event.getItem().getType().name().endsWith("_SWORD")) {
+            event.getPlayer().sendMessage(Component.text("You swung a sword!"));
+        }
+    }
+
+    @EventHandler
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player attacker) {
+            if (event.getEntity() instanceof Player victim) {
+                // Cancel PvP damage
+                event.setCancelled(true);
+                attacker.sendMessage(Component.text("PvP is disabled!", NamedTextColor.RED));
+            }
+        }
+    }
+}
+```
+
+## BasicCommand Interface
+
+Paper provides a simple `BasicCommand` interface for creating Bukkit-style commands with string arguments. This is ideal for straightforward commands that don't require complex argument parsing.
+
+```java
+package com.example.myplugin;
+
+import io.papermc.paper.command.brigadier.BasicCommand;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class HealCommand implements BasicCommand {
+
+    @Override
+    public void execute(CommandSourceStack stack, String[] args) {
+        if (args.length == 0) {
+            // Heal the command sender
+            if (stack.getSender() instanceof Player player) {
+                player.setHealth(player.getMaxHealth());
+                player.sendMessage(Component.text("You have been healed!", NamedTextColor.GREEN));
+            } else {
+                stack.getSender().sendMessage(Component.text("Console must specify a player!", NamedTextColor.RED));
+            }
+        } else {
+            // Heal specified player
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target != null) {
+                target.setHealth(target.getMaxHealth());
+                target.sendMessage(Component.text("You have been healed!", NamedTextColor.GREEN));
+                stack.getSender().sendMessage(Component.text("Healed " + target.getName(), NamedTextColor.GREEN));
+            } else {
+                stack.getSender().sendMessage(Component.text("Player not found!", NamedTextColor.RED));
+            }
+        }
+    }
+
+    @Override
+    public Collection<String> suggest(CommandSourceStack stack, String[] args) {
+        if (args.length == 1) {
+            return Bukkit.getOnlinePlayers().stream()
+                .map(Player::getName)
+                .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
+                .collect(Collectors.toList());
+        }
+        return List.of();
+    }
+
+    @Override
+    public String permission() {
+        return "myplugin.heal";
+    }
+}
+
+// Register in onEnable():
+// this.registerCommand("heal", "Heal yourself or another player", List.of("h"), new HealCommand());
+```
+
+## Brigadier Commands
+
+Paper supports Mojang's Brigadier command framework for advanced command creation with type-safe arguments, subcommands, and complex command trees.
+
+```java
+package com.example.myplugin;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
+import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class BrigadierCommands {
+
+    public static void register(JavaPlugin plugin) {
+        LifecycleEventManager<Plugin> manager = plugin.getLifecycleManager();
+
+        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            Commands commands = event.registrar();
+
+            // /economy give <player> <amount>
+            // /economy take <player> <amount>
+            // /economy balance [player]
+            commands.register(
+                Commands.literal("economy")
+                    .then(Commands.literal("give")
+                        .then(Commands.argument("player", ArgumentTypes.player())
+                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                .executes(ctx -> {
+                                    PlayerSelectorArgumentResolver resolver = ctx.getArgument("player", PlayerSelectorArgumentResolver.class);
+                                    Player target = resolver.resolve(ctx.getSource()).getFirst();
+                                    int amount = IntegerArgumentType.getInteger(ctx, "amount");
+
+                                    // Give money logic here
+                                    ctx.getSource().getSender().sendMessage(
+                                        Component.text("Gave $" + amount + " to " + target.getName(), NamedTextColor.GREEN)
+                                    );
+                                    return Command.SINGLE_SUCCESS;
+                                }))))
+                    .then(Commands.literal("take")
+                        .then(Commands.argument("player", ArgumentTypes.player())
+                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                .executes(ctx -> {
+                                    PlayerSelectorArgumentResolver resolver = ctx.getArgument("player", PlayerSelectorArgumentResolver.class);
+                                    Player target = resolver.resolve(ctx.getSource()).getFirst();
+                                    int amount = IntegerArgumentType.getInteger(ctx, "amount");
+
+                                    ctx.getSource().getSender().sendMessage(
+                                        Component.text("Took $" + amount + " from " + target.getName(), NamedTextColor.RED)
+                                    );
+                                    return Command.SINGLE_SUCCESS;
+                                }))))
+                    .then(Commands.literal("balance")
+                        .executes(ctx -> {
+                            if (ctx.getSource().getSender() instanceof Player player) {
+                                player.sendMessage(Component.text("Your balance: $1000", NamedTextColor.GOLD));
+                            }
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.argument("player", ArgumentTypes.player())
+                            .executes(ctx -> {
+                                PlayerSelectorArgumentResolver resolver = ctx.getArgument("player", PlayerSelectorArgumentResolver.class);
+                                Player target = resolver.resolve(ctx.getSource()).getFirst();
+                                ctx.getSource().getSender().sendMessage(
+                                    Component.text(target.getName() + "'s balance: $1000", NamedTextColor.GOLD)
+                                );
+                                return Command.SINGLE_SUCCESS;
+                            })))
+                    .build(),
+                "Economy management commands",
+                List.of("eco", "money")
+            );
+        });
+    }
+}
+```
+
+## Task Scheduling
+
+Paper provides a scheduler for running tasks synchronously on the main thread or asynchronously on separate threads. Tasks can be delayed, repeating, or one-time executions.
+
+```java
+package com.example.myplugin;
+
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
+
+import java.time.Duration;
+
+public class TaskExamples {
+
+    private final JavaPlugin plugin;
+    private BukkitTask autoSaveTask;
+
+    public TaskExamples(JavaPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    // Run task on next tick (synchronous)
+    public void runNextTick() {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            // This runs on the main server thread
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.sendMessage(Component.text("Server announcement!"));
+            }
+        });
+    }
+
+    // Run task after delay (20 ticks = 1 second)
+    public void runDelayed() {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Bukkit.broadcast(Component.text("This message appears after 5 seconds"));
+        }, 100L); // 100 ticks = 5 seconds
+    }
+
+    // Run repeating task
+    public void startAutoSave() {
+        autoSaveTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            // Runs every 5 minutes (6000 ticks)
+            Bukkit.savePlayers();
+            plugin.getLogger().info("Auto-saved player data");
+        }, 6000L, 6000L); // Initial delay, then repeat period
+    }
+
+    public void stopAutoSave() {
+        if (autoSaveTask != null) {
+            autoSaveTask.cancel();
+        }
+    }
+
+    // Asynchronous task (for IO operations, web requests, etc.)
+    public void loadDataAsync(Player player) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            // This runs on a separate thread - DO NOT access Bukkit API here
+            String data = fetchDataFromDatabase(player.getUniqueId().toString());
+
+            // Switch back to main thread to use Bukkit API
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                player.sendMessage(Component.text("Your data: " + data));
+            });
+        });
+    }
+
+    // Using BukkitRunnable for more control
+    public void startCountdown(Player player, int seconds) {
+        new BukkitRunnable() {
+            int remaining = seconds;
+
+            @Override
+            public void run() {
+                if (remaining <= 0) {
+                    player.showTitle(Title.title(
+                        Component.text("GO!"),
+                        Component.empty(),
+                        Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(500))
+                    ));
+                    cancel();
+                    return;
+                }
+
+                player.showTitle(Title.title(
+                    Component.text(String.valueOf(remaining)),
+                    Component.text("Get ready..."),
+                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ZERO)
+                ));
+                remaining--;
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    private String fetchDataFromDatabase(String uuid) {
+        // Simulate database fetch
+        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+        return "sample_data";
+    }
+}
+```
+
+## Player Management
+
+The Player interface provides comprehensive methods for interacting with online players including inventory management, teleportation, messaging, and stat manipulation.
+
+```java
+package com.example.myplugin;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.title.Title;
+import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+
+import java.time.Duration;
+import java.util.Collection;
+import java.util.UUID;
+
+public class PlayerManager {
+
+    // Get player by name or UUID
+    public Player getPlayer(String name) {
+        return Bukkit.getPlayer(name);
+    }
+
+    public Player getPlayer(UUID uuid) {
+        return Bukkit.getPlayer(uuid);
+    }
+
+    // Get all online players
+    public Collection<? extends Player> getOnlinePlayers() {
+        return Bukkit.getOnlinePlayers();
+    }
+
+    // Teleport player
+    public void teleportPlayer(Player player, Location location) {
+        player.teleport(location);
+        player.sendMessage(Component.text("You have been teleported!", NamedTextColor.GREEN));
+    }
+
+    // Set player game mode
+    public void setGameMode(Player player, GameMode mode) {
+        player.setGameMode(mode);
+    }
+
+    // Manage player health and food
+    public void healPlayer(Player player) {
+        player.setHealth(player.getMaxHealth());
+        player.setFoodLevel(20);
+        player.setSaturation(20f);
+        player.setFireTicks(0);
+
+        // Remove negative potion effects
+        for (PotionEffect effect : player.getActivePotionEffects()) {
+            if (isNegativeEffect(effect.getType())) {
+                player.removePotionEffect(effect.getType());
+            }
+        }
+    }
+
+    // Apply potion effects
+    public void applySpeed(Player player, int durationSeconds, int amplifier) {
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.SPEED,
+            durationSeconds * 20, // Convert to ticks
+            amplifier,
+            false, // ambient
+            true,  // particles
+            true   // icon
+        ));
+    }
+
+    // Display title
+    public void showTitle(Player player, String title, String subtitle) {
+        player.showTitle(Title.title(
+            Component.text(title, NamedTextColor.GOLD),
+            Component.text(subtitle, NamedTextColor.GRAY),
+            Title.Times.times(
+                Duration.ofMillis(500),  // Fade in
+                Duration.ofSeconds(3),    // Stay
+                Duration.ofMillis(500)   // Fade out
+            )
+        ));
+    }
+
+    // Play sound
+    public void playSound(Player player, Sound sound) {
+        player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+    }
+
+    // Set display name
+    public void setDisplayName(Player player, Component displayName) {
+        player.displayName(displayName);
+        player.playerListName(displayName);
+    }
+
+    // Kick player
+    public void kickPlayer(Player player, String reason) {
+        player.kick(Component.text(reason, NamedTextColor.RED));
+    }
+
+    private boolean isNegativeEffect(PotionEffectType type) {
+        return type.equals(PotionEffectType.POISON) ||
+               type.equals(PotionEffectType.WITHER) ||
+               type.equals(PotionEffectType.SLOWNESS) ||
+               type.equals(PotionEffectType.WEAKNESS);
+    }
+}
+```
+
+## ItemStack Creation and Manipulation
+
+ItemStack represents items in Minecraft. Paper provides methods for creating, modifying, and inspecting item stacks including metadata, enchantments, and custom data.
+
+```java
+package com.example.myplugin;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.List;
+
+public class ItemBuilder {
+
+    private final JavaPlugin plugin;
+
+    public ItemBuilder(JavaPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    // Create basic item
+    public ItemStack createItem(Material material, int amount) {
+        return ItemStack.of(material, amount);
+    }
+
+    // Create custom named item with lore
+    public ItemStack createCustomItem(Material material, Component name, List<Component> lore) {
+        ItemStack item = ItemStack.of(material);
+        ItemMeta meta = item.getItemMeta();
+
+        meta.displayName(name.decoration(TextDecoration.ITALIC, false));
+        meta.lore(lore.stream()
+            .map(line -> line.decoration(TextDecoration.ITALIC, false))
+            .toList());
+
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    // Create enchanted diamond sword
+    public ItemStack createLegendarySword() {
+        ItemStack sword = ItemStack.of(Material.DIAMOND_SWORD);
+        ItemMeta meta = sword.getItemMeta();
+
+        meta.displayName(Component.text("Legendary Blade", NamedTextColor.GOLD)
+            .decoration(TextDecoration.ITALIC, false)
+            .decoration(TextDecoration.BOLD, true));
+
+        meta.lore(List.of(
+            Component.text("A sword of immense power", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false),
+            Component.empty(),
+            Component.text("LEGENDARY", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false)
+        ));
+
+        sword.setItemMeta(meta);
+
+        // Add enchantments
+        sword.addEnchantment(Enchantment.SHARPNESS, 5);
+        sword.addEnchantment(Enchantment.FIRE_ASPECT, 2);
+        sword.addEnchantment(Enchantment.UNBREAKING, 3);
+
+        return sword;
+    }
+
+    // Store custom data in item
+    public ItemStack createTrackedItem(Material material, String trackingId) {
+        ItemStack item = ItemStack.of(material);
+        NamespacedKey key = new NamespacedKey(plugin, "tracking_id");
+
+        item.editPersistentDataContainer(container -> {
+            container.set(key, PersistentDataType.STRING, trackingId);
+        });
+
+        return item;
+    }
+
+    // Read custom data from item
+    public String getTrackingId(ItemStack item) {
+        NamespacedKey key = new NamespacedKey(plugin, "tracking_id");
+        return item.getPersistentDataContainer().get(key, PersistentDataType.STRING);
+    }
+
+    // Check if item has specific enchantment
+    public boolean hasEnchantment(ItemStack item, Enchantment enchantment) {
+        return item.containsEnchantment(enchantment);
+    }
+
+    // Create player head
+    public ItemStack createPlayerHead(String playerName) {
+        ItemStack head = ItemStack.of(Material.PLAYER_HEAD);
+        org.bukkit.inventory.meta.SkullMeta meta = (org.bukkit.inventory.meta.SkullMeta) head.getItemMeta();
+
+        meta.setOwningPlayer(org.bukkit.Bukkit.getOfflinePlayer(playerName));
+        meta.displayName(Component.text(playerName + "'s Head", NamedTextColor.YELLOW));
+
+        head.setItemMeta(meta);
+        return head;
+    }
+}
+```
+
+## World Management
+
+The World interface provides access to blocks, entities, weather, time, and world-specific settings. Paper enhances world operations with additional methods for structure detection and performance metrics.
+
+```java
+package com.example.myplugin;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.WorldCreator;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Zombie;
+
+import java.util.Collection;
+import java.util.List;
+
+public class WorldManager {
+
+    // Get world by name
+    public World getWorld(String name) {
+        return Bukkit.getWorld(name);
+    }
+
+    // Get all loaded worlds
+    public List<World> getWorlds() {
+        return Bukkit.getWorlds();
+    }
+
+    // Create or load a world
+    public World createWorld(String name) {
+        WorldCreator creator = new WorldCreator(name);
+        creator.environment(World.Environment.NORMAL);
+        creator.generateStructures(true);
+        return creator.createWorld();
+    }
+
+    // Get block at location
+    public Block getBlock(World world, int x, int y, int z) {
+        return world.getBlockAt(x, y, z);
+    }
+
+    // Set block type
+    public void setBlock(Location location, Material material) {
+        location.getBlock().setType(material);
+    }
+
+    // Get entities in world
+    public Collection<Entity> getEntities(World world) {
+        return world.getEntities();
+    }
+
+    // Get nearby entities
+    public Collection<Entity> getNearbyEntities(Location location, double radius) {
+        return location.getWorld().getNearbyEntities(location, radius, radius, radius);
+    }
+
+    // Spawn entity
+    public Zombie spawnZombie(Location location) {
+        return (Zombie) location.getWorld().spawnEntity(location, EntityType.ZOMBIE);
+    }
+
+    // Spawn entity with customization
+    public Zombie spawnCustomZombie(Location location) {
+        return location.getWorld().spawn(location, Zombie.class, zombie -> {
+            zombie.customName(net.kyori.adventure.text.Component.text("Boss Zombie"));
+            zombie.setCustomNameVisible(true);
+            zombie.setBaby(false);
+            zombie.setHealth(40.0);
+        });
+    }
+
+    // Set world time
+    public void setTime(World world, long time) {
+        world.setTime(time);
+    }
+
+    public void setDay(World world) {
+        world.setTime(1000); // Morning
+    }
+
+    public void setNight(World world) {
+        world.setTime(13000); // Night
+    }
+
+    // Weather control
+    public void setWeather(World world, boolean storm, boolean thunder) {
+        world.setStorm(storm);
+        world.setThundering(thunder);
+    }
+
+    public void clearWeather(World world) {
+        world.setStorm(false);
+        world.setThundering(false);
+        world.setWeatherDuration(Integer.MAX_VALUE);
+    }
+
+    // Paper-specific: Get world statistics
+    public void printWorldStats(World world) {
+        System.out.println("World: " + world.getName());
+        System.out.println("Entity count: " + world.getEntityCount());
+        System.out.println("Tile entity count: " + world.getTileEntityCount());
+        System.out.println("Chunk count: " + world.getChunkCount());
+        System.out.println("Player count: " + world.getPlayerCount());
+    }
+
+    // Get spawn location
+    public Location getSpawnLocation(World world) {
+        return world.getSpawnLocation();
+    }
+
+    // Set spawn location
+    public void setSpawnLocation(World world, Location location) {
+        world.setSpawnLocation(location);
+    }
+}
+```
+
+## Inventory Management
+
+Paper provides APIs for creating custom inventories (GUIs), managing player inventories, and handling inventory click events.
+
+```java
+package com.example.myplugin;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+public class GUIManager implements Listener {
+
+    private final JavaPlugin plugin;
+    private final Map<UUID, String> openMenus = new HashMap<>();
+
+    public GUIManager(JavaPlugin plugin) {
+        this.plugin = plugin;
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+    }
+
+    // Create and open a custom menu
+    public void openMainMenu(Player player) {
+        Inventory inventory = Bukkit.createInventory(
+            null,
+            27, // Size (must be multiple of 9)
+            Component.text("Main Menu", NamedTextColor.DARK_PURPLE)
+        );
+
+        // Fill border with glass panes
+        ItemStack border = createItem(Material.GRAY_STAINED_GLASS_PANE, Component.empty());
+        for (int i = 0; i < 27; i++) {
+            if (i < 9 || i >= 18 || i % 9 == 0 || i % 9 == 8) {
+                inventory.setItem(i, border);
+            }
+        }
+
+        // Add menu items
+        inventory.setItem(11, createItem(Material.DIAMOND_SWORD,
+            Component.text("PvP Arena", NamedTextColor.RED)));
+        inventory.setItem(13, createItem(Material.ENDER_PEARL,
+            Component.text("Teleport Menu", NamedTextColor.LIGHT_PURPLE)));
+        inventory.setItem(15, createItem(Material.GOLD_INGOT,
+            Component.text("Shop", NamedTextColor.GOLD)));
+
+        player.openInventory(inventory);
+        openMenus.put(player.getUniqueId(), "main_menu");
+    }
+
+    public void openShopMenu(Player player) {
+        Inventory shop = Bukkit.createInventory(null, 54,
+            Component.text("Shop", NamedTextColor.GOLD));
+
+        // Add items for sale
+        shop.setItem(10, createShopItem(Material.DIAMOND_SWORD, "Diamond Sword", 100));
+        shop.setItem(11, createShopItem(Material.DIAMOND_PICKAXE, "Diamond Pickaxe", 80));
+        shop.setItem(12, createShopItem(Material.GOLDEN_APPLE, "Golden Apple", 50));
+        shop.setItem(13, createShopItem(Material.ENDER_PEARL, "Ender Pearl", 25));
+
+        // Close button
+        shop.setItem(49, createItem(Material.BARRIER,
+            Component.text("Close", NamedTextColor.RED)));
+
+        player.openInventory(shop);
+        openMenus.put(player.getUniqueId(), "shop");
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        String menuType = openMenus.get(player.getUniqueId());
+        if (menuType == null) return;
+
+        event.setCancelled(true); // Prevent taking items
+
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType() == Material.AIR) return;
+
+        switch (menuType) {
+            case "main_menu" -> handleMainMenuClick(player, clicked);
+            case "shop" -> handleShopClick(player, clicked, event.getSlot());
+        }
+    }
+
+    private void handleMainMenuClick(Player player, ItemStack clicked) {
+        switch (clicked.getType()) {
+            case DIAMOND_SWORD -> {
+                player.closeInventory();
+                player.sendMessage(Component.text("Teleporting to PvP Arena...", NamedTextColor.RED));
+            }
+            case ENDER_PEARL -> {
+                player.closeInventory();
+                player.sendMessage(Component.text("Opening teleport menu...", NamedTextColor.LIGHT_PURPLE));
+            }
+            case GOLD_INGOT -> openShopMenu(player);
+        }
+    }
+
+    private void handleShopClick(Player player, ItemStack clicked, int slot) {
+        if (clicked.getType() == Material.BARRIER) {
+            player.closeInventory();
+            return;
+        }
+
+        // Process purchase logic here
+        player.sendMessage(Component.text("You purchased: " + clicked.getType().name(), NamedTextColor.GREEN));
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        openMenus.remove(event.getPlayer().getUniqueId());
+    }
+
+    private ItemStack createItem(Material material, Component name) {
+        ItemStack item = ItemStack.of(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(name);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createShopItem(Material material, String name, int price) {
+        ItemStack item = ItemStack.of(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name, NamedTextColor.WHITE));
+        meta.lore(List.of(
+            Component.empty(),
+            Component.text("Price: $" + price, NamedTextColor.GOLD),
+            Component.text("Click to purchase", NamedTextColor.GRAY)
+        ));
+        item.setItemMeta(meta);
+        return item;
+    }
+}
+```
+
+## Configuration Management
+
+Paper plugins can use YAML configuration files for storing settings and data. The configuration API provides easy access to read, write, and manage configuration values.
+
+```java
+package com.example.myplugin;
+
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+
+public class ConfigManager {
+
+    private final JavaPlugin plugin;
+    private FileConfiguration config;
+    private FileConfiguration playerData;
+    private File playerDataFile;
+
+    public ConfigManager(JavaPlugin plugin) {
+        this.plugin = plugin;
+        loadConfigs();
+    }
+
+    private void loadConfigs() {
+        // Load default config.yml
+        plugin.saveDefaultConfig();
+        config = plugin.getConfig();
+
+        // Load custom config file
+        playerDataFile = new File(plugin.getDataFolder(), "playerdata.yml");
+        if (!playerDataFile.exists()) {
+            plugin.saveResource("playerdata.yml", false);
+        }
+        playerData = YamlConfiguration.loadConfiguration(playerDataFile);
+    }
+
+    // Read values from config
+    public String getServerName() {
+        return config.getString("server.name", "Default Server");
+    }
+
+    public int getMaxHomes() {
+        return config.getInt("settings.max-homes", 3);
+    }
+
+    public boolean isPvPEnabled() {
+        return config.getBoolean("settings.pvp-enabled", true);
+    }
+
+    public List<String> getBlockedCommands() {
+        return config.getStringList("settings.blocked-commands");
+    }
+
+    public double getEconomyStartBalance() {
+        return config.getDouble("economy.start-balance", 1000.0);
+    }
+
+    // Write values to custom config
+    public void setPlayerBalance(String uuid, double balance) {
+        playerData.set("players." + uuid + ".balance", balance);
+        savePlayerData();
+    }
+
+    public double getPlayerBalance(String uuid) {
+        return playerData.getDouble("players." + uuid + ".balance", 0.0);
+    }
+
+    public void setPlayerHome(String uuid, String homeName, String world, double x, double y, double z) {
+        String path = "players." + uuid + ".homes." + homeName;
+        playerData.set(path + ".world", world);
+        playerData.set(path + ".x", x);
+        playerData.set(path + ".y", y);
+        playerData.set(path + ".z", z);
+        savePlayerData();
+    }
+
+    private void savePlayerData() {
+        try {
+            playerData.save(playerDataFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save player data: " + e.getMessage());
+        }
+    }
+
+    // Reload configs
+    public void reloadConfigs() {
+        plugin.reloadConfig();
+        config = plugin.getConfig();
+        playerData = YamlConfiguration.loadConfiguration(playerDataFile);
+    }
+}
+
+// Example config.yml:
+/*
+server:
+  name: "My Awesome Server"
+
+settings:
+  max-homes: 5
+  pvp-enabled: true
+  blocked-commands:
+    - "/op"
+    - "/deop"
+    - "/stop"
+
+economy:
+  start-balance: 1000.0
+  currency-symbol: "$"
+*/
+```
+
+## Server Performance APIs
+
+Paper provides unique APIs for monitoring server performance including TPS (ticks per second), tick times, and entity/chunk counts.
+
+```java
+package com.example.myplugin;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+
+public class PerformanceMonitor {
+
+    // Get server TPS (1m, 5m, 15m averages)
+    public double[] getTPS() {
+        return Bukkit.getTPS();
+    }
+
+    public String getTpsStatus() {
+        double[] tps = getTPS();
+        double currentTps = tps[0]; // 1-minute average
+
+        NamedTextColor color;
+        if (currentTps >= 19.0) {
+            color = NamedTextColor.GREEN;
+        } else if (currentTps >= 15.0) {
+            color = NamedTextColor.YELLOW;
+        } else {
+            color = NamedTextColor.RED;
+        }
+
+        return String.format("TPS: %.2f (1m), %.2f (5m), %.2f (15m)",
+            tps[0], tps[1], tps[2]);
+    }
+
+    // Get average tick time in milliseconds
+    public double getAverageTickTime() {
+        return Bukkit.getAverageTickTime();
+    }
+
+    // Get tick time samples
+    public long[] getTickTimes() {
+        return Bukkit.getTickTimes();
+    }
+
+    // Get current tick number
+    public int getCurrentTick() {
+        return Bukkit.getCurrentTick();
+    }
+
+    // Check if running on main thread
+    public boolean isMainThread() {
+        return Bukkit.isPrimaryThread();
+    }
+
+    // Check if server is stopping
+    public boolean isStopping() {
+        return Bukkit.isStopping();
+    }
+
+    // Get online player count
+    public int getOnlinePlayerCount() {
+        return Bukkit.getOnlinePlayers().size();
+    }
+
+    // Get maximum player count
+    public int getMaxPlayers() {
+        return Bukkit.getMaxPlayers();
+    }
+
+    // Send performance report to player
+    public void sendPerformanceReport(Player player) {
+        double[] tps = getTPS();
+        double avgTick = getAverageTickTime();
+
+        player.sendMessage(Component.text("=== Server Performance ===", NamedTextColor.GOLD));
+        player.sendMessage(Component.text(String.format("TPS: %.2f / %.2f / %.2f",
+            tps[0], tps[1], tps[2]), getTpsColor(tps[0])));
+        player.sendMessage(Component.text(String.format("Avg Tick: %.2fms", avgTick),
+            avgTick < 50 ? NamedTextColor.GREEN : NamedTextColor.RED));
+        player.sendMessage(Component.text(String.format("Players: %d/%d",
+            getOnlinePlayerCount(), getMaxPlayers()), NamedTextColor.AQUA));
+
+        // World-specific stats
+        for (World world : Bukkit.getWorlds()) {
+            player.sendMessage(Component.text(String.format(
+                "World '%s': %d entities, %d chunks",
+                world.getName(), world.getEntityCount(), world.getChunkCount()
+            ), NamedTextColor.GRAY));
+        }
+    }
+
+    private NamedTextColor getTpsColor(double tps) {
+        if (tps >= 19.0) return NamedTextColor.GREEN;
+        if (tps >= 15.0) return NamedTextColor.YELLOW;
+        return NamedTextColor.RED;
+    }
+}
+```
+
+## Summary
+
+Paper provides a comprehensive plugin development framework suitable for creating anything from simple quality-of-life improvements to complex game systems. The core integration patterns include: extending `JavaPlugin` for plugin lifecycle management, implementing `Listener` with `@EventHandler` methods for event-driven logic, using `BasicCommand` or Brigadier for command registration, leveraging `BukkitScheduler` for task management, and utilizing the Adventure API for modern text formatting. Configuration is handled through YAML files with automatic serialization support.
+
+Common use cases for Paper plugins include custom game modes and minigames, server administration tools, economy and shop systems, custom enchantments and items, player statistics and leaderboards, world management utilities, chat formatting and moderation, and integration with external services. The API's event-driven architecture allows plugins to intercept and modify nearly every aspect of gameplay while maintaining compatibility with other plugins through the standardized Bukkit/Paper API surface.

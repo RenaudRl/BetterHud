@@ -1,0 +1,822 @@
+# CraftEngine
+
+## Introduction
+
+CraftEngine is a next-generation Minecraft plugin framework for implementing custom content on Paper/Spigot servers. It provides a comprehensive system for creating custom blocks, items, furniture, fonts, images, recipes, and sounds entirely through YAML configuration or programmatic Java APIs. The framework automatically generates client resource packs and handles all the complex mechanics of custom content integration, making it seamless for both server administrators and players.
+
+The project is built on a modular architecture with a platform-agnostic core and Bukkit-specific implementations. It includes extensive compatibility layers for popular plugins like MMOItems, MythicMobs, PlaceholderAPI, WorldGuard, ModelEngine, and many others. CraftEngine handles everything from custom block behaviors and furniture interactions to automatic resource pack generation and hosting, providing developers with a powerful toolkit for extending Minecraft's content without client-side mods.
+
+## API Reference and Code Examples
+
+### Accessing Loaded Custom Blocks
+
+Get all custom blocks loaded by CraftEngine
+
+```java
+import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
+import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;
+import net.momirealms.craftengine.core.block.CustomBlock;
+import net.momirealms.craftengine.core.util.Key;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class BlockRegistryListener implements Listener {
+
+    @EventHandler
+    public void onCraftEngineReload(CraftEngineReloadEvent event) {
+        // Get all loaded custom blocks
+        Map<Key, CustomBlock> blocks = CraftEngineBlocks.loadedBlocks();
+
+        for (Map.Entry<Key, CustomBlock> entry : blocks.entrySet()) {
+            Key id = entry.getKey();
+            CustomBlock block = entry.getValue();
+
+            getLogger().info("Loaded block: " + id + " with " +
+                block.states().size() + " states");
+        }
+
+        // Get specific block by ID
+        CustomBlock torch = CraftEngineBlocks.byId(Key.of("default", "amethyst_torch"));
+        if (torch != null) {
+            getLogger().info("Found amethyst torch with luminance: " +
+                torch.settings().luminance());
+        }
+    }
+}
+```
+
+### Placing Custom Blocks Programmatically
+
+Place custom blocks at specific locations with various options
+
+```java
+import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
+import net.momirealms.craftengine.core.block.CustomBlock;
+import net.momirealms.craftengine.core.block.ImmutableBlockState;
+import net.momirealms.craftengine.core.block.UpdateOption;
+import net.momirealms.craftengine.core.util.Key;
+import net.momirealms.sparrow.nbt.CompoundTag;
+import org.bukkit.Location;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+
+public class BlockPlacementCommand implements CommandExecutor {
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) return false;
+        Player player = (Player) sender;
+        Location target = player.getTargetBlock(null, 10).getLocation();
+
+        // Method 1: Place block by ID (uses default state)
+        Key blockId = Key.of("default", "amethyst_torch");
+        boolean success = CraftEngineBlocks.place(target, blockId, true);
+
+        if (success) {
+            player.sendMessage("Placed amethyst torch!");
+        }
+
+        // Method 2: Place block with custom properties
+        CompoundTag properties = new CompoundTag();
+        properties.putString("facing", "north");
+        CraftEngineBlocks.place(target, blockId, properties, true);
+
+        // Method 3: Place specific block state with update options
+        CustomBlock block = CraftEngineBlocks.byId(blockId);
+        if (block != null) {
+            ImmutableBlockState state = block.defaultState();
+            CraftEngineBlocks.place(target, state, UpdateOption.UPDATE_ALL, true);
+        }
+
+        return true;
+    }
+}
+```
+
+### Checking and Removing Custom Blocks
+
+Detect if a block is custom and remove it with loot drops
+
+```java
+import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
+import net.momirealms.craftengine.core.block.CustomBlock;
+import net.momirealms.craftengine.core.block.ImmutableBlockState;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+
+public class CustomBlockBreakHandler implements Listener {
+
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        Player player = event.getPlayer();
+
+        // Check if it's a custom block
+        if (CraftEngineBlocks.isCustomBlock(block)) {
+            event.setCancelled(true); // Cancel vanilla break
+
+            // Get the custom block state
+            ImmutableBlockState state = CraftEngineBlocks.getCustomBlockState(block);
+            if (state != null) {
+                CustomBlock customBlock = state.owner().value();
+                player.sendMessage("Breaking custom block: " + customBlock.id());
+
+                // Remove with proper drops, sounds, and particles
+                boolean removed = CraftEngineBlocks.remove(
+                    block,      // block to remove
+                    player,     // player breaking it
+                    true,       // drop loot
+                    false,      // is moving (for pistons)
+                    true        // play break sound and particles
+                );
+
+                if (removed) {
+                    player.sendMessage("Custom block removed!");
+                }
+            }
+        }
+    }
+}
+```
+
+### Accessing and Giving Custom Items
+
+Get custom items and build item stacks for players
+
+```java
+import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
+import net.momirealms.craftengine.bukkit.api.BukkitAdaptors;
+import net.momirealms.craftengine.bukkit.item.BukkitItemManager;
+import net.momirealms.craftengine.core.item.CustomItem;
+import net.momirealms.craftengine.core.util.Key;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+public class GiveItemCommand implements CommandExecutor {
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) return false;
+        Player player = (Player) sender;
+
+        if (args.length < 1) {
+            // List all available custom items
+            Map<Key, CustomItem<ItemStack>> items = CraftEngineItems.loadedItems();
+            player.sendMessage("Available items (" + items.size() + "):");
+            items.keySet().forEach(key -> player.sendMessage("  - " + key));
+            return true;
+        }
+
+        // Build custom item for player
+        Key itemId = Key.of("default", args[0]);
+        ItemStack item = BukkitItemManager.instance()
+            .buildCustomItemStack(itemId, BukkitAdaptors.adapt(player));
+
+        if (item != null) {
+            player.getInventory().addItem(item);
+            player.sendMessage("Given custom item: " + itemId);
+        } else {
+            player.sendMessage("Unknown item: " + itemId);
+        }
+
+        return true;
+    }
+}
+```
+
+### Detecting Custom Items
+
+Check if items are custom and retrieve their IDs
+
+```java
+import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
+import net.momirealms.craftengine.core.item.CustomItem;
+import net.momirealms.craftengine.core.util.Key;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+
+public class CustomItemInteractionHandler implements Listener {
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+
+        if (item == null) return;
+
+        // Check if the item is a custom item
+        if (CraftEngineItems.isCustomItem(item)) {
+            // Get the custom item ID
+            Key customId = CraftEngineItems.getCustomItemId(item);
+            player.sendMessage("Using custom item: " + customId);
+
+            // Get the CustomItem definition
+            CustomItem<ItemStack> customItem = CraftEngineItems.byItemStack(item);
+            if (customItem != null) {
+                player.sendMessage("Item behaviors: " + customItem.behaviors().size());
+                player.sendMessage("Max stack size: " + customItem.settings().maxStackSize());
+            }
+
+            // Check for specific custom item
+            if (customId != null && customId.equals(Key.of("default", "amethyst_torch"))) {
+                player.sendMessage("This is an amethyst torch!");
+            }
+        }
+    }
+}
+```
+
+### Placing and Managing Furniture
+
+Place furniture entities and interact with them programmatically
+
+```java
+import net.momirealms.craftengine.bukkit.api.CraftEngineFurniture;
+import net.momirealms.craftengine.bukkit.entity.furniture.BukkitFurniture;
+import net.momirealms.craftengine.core.entity.furniture.CustomFurniture;
+import net.momirealms.craftengine.core.entity.furniture.FurnitureDataAccessor;
+import net.momirealms.craftengine.core.util.Key;
+import net.momirealms.sparrow.nbt.CompoundTag;
+import org.bukkit.Location;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+
+public class FurniturePlacementCommand implements CommandExecutor {
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) return false;
+        Player player = (Player) sender;
+        Location target = player.getLocation();
+
+        // Method 1: Simple placement with default variant
+        Key furnitureId = Key.of("default", "wooden_chair");
+        BukkitFurniture chair = CraftEngineFurniture.place(target, furnitureId);
+
+        if (chair != null) {
+            player.sendMessage("Placed chair at: " + chair.getLocation());
+            player.sendMessage("Furniture UUID: " + chair.getUniqueId());
+        }
+
+        // Method 2: Place with specific variant
+        BukkitFurniture groundChair = CraftEngineFurniture.place(
+            target.add(2, 0, 0),
+            furnitureId,
+            "ground",  // variant name
+            true       // play sound
+        );
+
+        // Method 3: Place with custom data using CustomFurniture instance
+        CustomFurniture furnitureConfig = CraftEngineFurniture.byId(furnitureId);
+        if (furnitureConfig != null) {
+            CompoundTag customData = new CompoundTag();
+            customData.putString("owner", player.getName());
+            customData.putString("variant", "ground");
+
+            BukkitFurniture customChair = CraftEngineFurniture.place(
+                target.add(4, 0, 0),
+                furnitureConfig,
+                FurnitureDataAccessor.of(customData),
+                true
+            );
+        }
+
+        return true;
+    }
+}
+```
+
+### Detecting and Removing Furniture
+
+Ray trace furniture, check entity types, and remove furniture properly
+
+```java
+import net.momirealms.craftengine.bukkit.api.CraftEngineFurniture;
+import net.momirealms.craftengine.bukkit.entity.furniture.BukkitFurniture;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+
+public class FurnitureInteractionHandler implements Listener {
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+
+        // Ray trace to find furniture player is looking at
+        BukkitFurniture furniture = CraftEngineFurniture.rayTrace(player, 5.0);
+
+        if (furniture != null) {
+            player.sendMessage("Looking at furniture: " + furniture.config.id());
+            player.sendMessage("Location: " + furniture.getLocation());
+            player.sendMessage("Variant: " + furniture.dataAccessor.variant());
+
+            // Check if furniture has seats
+            if (!furniture.config.seats().isEmpty()) {
+                player.sendMessage("This furniture has seats!");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityInteract(PlayerInteractEntityEvent event) {
+        Entity entity = event.getRightClicked();
+        Player player = event.getPlayer();
+
+        // Check if entity is furniture
+        if (CraftEngineFurniture.isFurniture(entity)) {
+            player.sendMessage("This is a furniture entity!");
+
+            // Get the furniture instance
+            BukkitFurniture furniture = CraftEngineFurniture.getLoadedFurnitureByMetaEntity(entity);
+
+            if (furniture != null) {
+                player.sendMessage("Furniture ID: " + furniture.config.id());
+
+                // Remove furniture with drops and sound
+                boolean removed = CraftEngineFurniture.remove(
+                    entity,     // furniture entity
+                    player,     // player removing it
+                    true,       // drop loot
+                    true        // play break sound
+                );
+
+                if (removed) {
+                    player.sendMessage("Furniture removed!");
+                }
+            }
+        }
+
+        // Check if entity is a collision box
+        if (CraftEngineFurniture.isCollisionEntity(entity)) {
+            player.sendMessage("This is a furniture collision entity");
+            BukkitFurniture furniture = CraftEngineFurniture.getLoadedFurnitureByCollider(entity);
+            if (furniture != null) {
+                player.sendMessage("Collision for: " + furniture.config.id());
+            }
+        }
+
+        // Check if entity is a seat
+        if (CraftEngineFurniture.isSeat(entity)) {
+            player.sendMessage("This is a furniture seat");
+        }
+    }
+}
+```
+
+### Listening to CraftEngine Events
+
+Handle block, item, and furniture events for custom logic
+
+```java
+import net.momirealms.craftengine.bukkit.api.event.*;
+import net.momirealms.craftengine.core.block.CustomBlock;
+import net.momirealms.craftengine.core.entity.furniture.CustomFurniture;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class CraftEngineEventListener implements Listener {
+
+    @EventHandler
+    public void onCraftEngineReload(CraftEngineReloadEvent event) {
+        // Fired after CraftEngine loads/reloads all content
+        getLogger().info("CraftEngine reloaded!");
+        getLogger().info("Loaded " + CraftEngineBlocks.loadedBlocks().size() + " blocks");
+        getLogger().info("Loaded " + CraftEngineItems.loadedItems().size() + " items");
+        getLogger().info("Loaded " + CraftEngineFurniture.loadedFurniture().size() + " furniture");
+    }
+
+    @EventHandler
+    public void onCustomBlockPlace(CustomBlockPlaceEvent event) {
+        Player player = event.player();
+        CustomBlock block = event.customBlock();
+        Location location = event.location();
+
+        player.sendMessage("Placed custom block: " + block.id() +
+            " at " + location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ());
+
+        // Cancel placement if needed
+        // event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onCustomBlockBreak(CustomBlockBreakEvent event) {
+        Player player = event.player();
+        CustomBlock block = event.customBlock();
+        Location location = event.location();
+
+        player.sendMessage("Broke custom block: " + block.id());
+
+        // Modify drops if needed
+        // event.setDropLoot(false);
+    }
+
+    @EventHandler
+    public void onCustomBlockInteract(CustomBlockInteractEvent event) {
+        Player player = event.player();
+        CustomBlock block = event.customBlock();
+
+        player.sendMessage("Interacted with: " + block.id());
+    }
+
+    @EventHandler
+    public void onFurniturePlace(FurniturePlaceEvent event) {
+        Player player = event.player();
+        CustomFurniture furniture = event.furniture();
+        Location location = event.location();
+
+        player.sendMessage("Placed furniture: " + furniture.id() + " at " + location);
+    }
+
+    @EventHandler
+    public void onFurnitureBreak(FurnitureBreakEvent event) {
+        Player player = event.player();
+        CustomFurniture furniture = event.furniture();
+
+        player.sendMessage("Broke furniture: " + furniture.id());
+
+        // Control loot drops
+        // event.setDropLoot(false);
+    }
+
+    @EventHandler
+    public void onFurnitureInteract(FurnitureInteractEvent event) {
+        Player player = event.player();
+        CustomFurniture furniture = event.furniture();
+
+        player.sendMessage("Interacted with furniture: " + furniture.id());
+
+        // Cancel default interaction
+        // event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onResourcePackGenerate(AsyncResourcePackGenerateEvent event) {
+        // Fired during resource pack generation (async)
+        getLogger().info("Generating resource pack...");
+    }
+}
+```
+
+### Registering External Item Sources
+
+Integrate custom items from other plugins into CraftEngine
+
+```java
+import net.momirealms.craftengine.bukkit.item.BukkitItemManager;
+import net.momirealms.craftengine.core.item.ExternalItemSource;
+import net.momirealms.craftengine.core.item.ItemBuildContext;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class MyItemSourceIntegration implements ExternalItemSource<ItemStack> {
+
+    @Override
+    public String plugin() {
+        return "MyCustomItemsPlugin";
+    }
+
+    @Override
+    public ItemStack build(String id, ItemBuildContext context) {
+        // Build item from your plugin's API
+        // Example: return MyCustomItemsAPI.getItem(id);
+
+        // For demonstration, return null if item not found
+        return MyCustomItemsAPI.getItemById(id);
+    }
+
+    @Override
+    public String id(ItemStack item) {
+        // Get your plugin's item ID from an ItemStack
+        // Example: return MyCustomItemsAPI.getItemId(item);
+
+        String customId = MyCustomItemsAPI.getItemId(item);
+        return customId; // Return null if not from your plugin
+    }
+}
+
+// In your plugin's onEnable method:
+public class MyPlugin extends JavaPlugin {
+
+    @Override
+    public void onEnable() {
+        // Register external item source
+        boolean registered = BukkitItemManager.instance()
+            .registerExternalItemSource(new MyItemSourceIntegration());
+
+        if (registered) {
+            getLogger().info("Successfully integrated with CraftEngine!");
+        } else {
+            getLogger().warning("Failed to register external item source");
+        }
+    }
+}
+
+// Mock API class for demonstration
+class MyCustomItemsAPI {
+    public static ItemStack getItemById(String id) {
+        // Your implementation
+        return null;
+    }
+
+    public static String getItemId(ItemStack item) {
+        // Your implementation
+        return null;
+    }
+}
+```
+
+### Using BukkitAdaptors for Type Conversion
+
+Convert between Bukkit types and CraftEngine types
+
+```java
+import net.momirealms.craftengine.bukkit.api.BukkitAdaptors;
+import net.momirealms.craftengine.bukkit.plugin.user.BukkitServerPlayer;
+import net.momirealms.craftengine.bukkit.world.BukkitWorld;
+import net.momirealms.craftengine.core.item.Item;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+public class AdaptorExample {
+
+    public void convertTypes(Player player, World world, Block block,
+                            Entity entity, ItemStack itemStack) {
+
+        // Convert Bukkit Player to CraftEngine ServerPlayer
+        BukkitServerPlayer serverPlayer = BukkitAdaptors.adapt(player);
+
+        // Access CraftEngine-specific player methods
+        Location eyeLocation = serverPlayer.getEyeLocation();
+        double interactionRange = serverPlayer.getCachedInteractionRange();
+
+        // Convert Bukkit World to CraftEngine World
+        BukkitWorld craftWorld = BukkitAdaptors.adapt(world);
+
+        // Convert Bukkit Block to CraftEngine ExistingBlock
+        var craftBlock = BukkitAdaptors.adapt(block);
+
+        // Convert Bukkit Entity to CraftEngine Entity
+        var craftEntity = BukkitAdaptors.adapt(entity);
+
+        // Wrap ItemStack in CraftEngine Item wrapper
+        Item<ItemStack> item = BukkitAdaptors.adapt(itemStack);
+
+        // Check if item is custom
+        if (item.isCustomItem()) {
+            player.sendMessage("Custom item: " + item.customId().orElse(null));
+        }
+    }
+}
+```
+
+### YAML Configuration Example - Custom Block
+
+Complete example of defining a custom block with items, recipes, and behaviors
+
+```yaml
+# File: blocks/amethyst_torch.yml
+
+items:
+  default:amethyst_torch:
+    data:
+      item-name: <!i><l10n:item.amethyst_torch>
+    texture: minecraft:block/custom/amethyst_torch
+    behavior:
+      - type: wall_block_item
+        block: default:amethyst_wall_torch
+      - type: block_item
+        block: default:amethyst_torch
+
+  default:amethyst_standing_torch:
+    data:
+      item-name: <!i><l10n:item.amethyst_torch>
+    model:
+      type: minecraft:model
+      path: minecraft:block/custom/amethyst_torch
+      generation:
+        parent: minecraft:block/template_torch
+        textures:
+          torch: minecraft:block/custom/amethyst_torch
+
+blocks:
+  default:amethyst_torch:
+    loot:
+      template: default:loot_table/basic
+      arguments:
+        item: default:amethyst_torch
+    settings:
+      template:
+        - default:sound/wood
+        - default:hardness/none
+      overrides:
+        push-reaction: destroy
+        replaceable: false
+        map-color: 24
+        luminance: 15
+        item: default:amethyst_torch
+    state:
+      state: redstone_torch[lit=false]
+      entity-renderer:
+        item: default:amethyst_standing_torch
+        scale: 1.01
+    behavior:
+      - type: sturdy_base_block
+        direction: down
+        support-types:
+          - center
+      - type: liquid_flowable_block
+      - type: simple_particle_block
+        tick-interval: 10
+        particles:
+          - particle: smoke
+            x: 0.5
+            y: 0.7
+            z: 0.5
+          - particle: dust
+            color: 138,43,226
+            x: 0.5
+            y: 0.7
+            z: 0.5
+
+  default:amethyst_wall_torch:
+    loot:
+      template: default:loot_table/basic
+      arguments:
+        item: default:amethyst_torch
+    settings:
+      template:
+        - default:sound/wood
+        - default:hardness/none
+      overrides:
+        push-reaction: destroy
+        replaceable: false
+        luminance: 15
+    behavior:
+      - type: directional_attached_block
+      - type: liquid_flowable_block
+      - type: wall_torch_particle_block
+        particles:
+          - particle: smoke
+            x: 0.27
+            y: 0.42
+            z: 0.27
+    states:
+      properties:
+        facing:
+          type: horizontal_direction
+      appearances:
+        north:
+          state: redstone_wall_torch[facing=north,lit=false]
+          entity-renderer:
+            item: default:amethyst_wall_torch
+            scale: 1.04
+            yaw: 90
+        east:
+          state: redstone_wall_torch[facing=east,lit=false]
+          entity-renderer:
+            item: default:amethyst_wall_torch
+            scale: 1.04
+            yaw: 180
+      variants:
+        facing=north:
+          appearance: north
+        facing=east:
+          appearance: east
+
+recipes:
+  default:amethyst_torch:
+    type: shaped
+    pattern:
+      - 'A'
+      - 'B'
+    ingredients:
+      A: minecraft:amethyst_shard
+      B: minecraft:stick
+    result:
+      id: default:amethyst_torch
+      count: 1
+```
+
+### YAML Configuration Example - Custom Furniture
+
+Complete example of defining furniture with seats and interactions
+
+```yaml
+# File: furniture/wooden_chair.yml
+
+items:
+  default:wooden_chair:
+    material: nether_brick
+    data:
+      item-name: <!i><l10n:item.wooden_chair>
+    model: minecraft:item/custom/wooden_chair
+    behavior:
+      type: furniture_item
+      rules:
+        ground:
+          rotation: any
+          alignment: any
+      furniture:
+        events:
+          - template: default:rotatable_furniture_8
+        settings:
+          item: default:wooden_chair
+          sounds:
+            break: minecraft:block.bamboo_wood.break
+            place: minecraft:block.bamboo_wood.place
+        variants:
+          ground:
+            loot-spawn-offset: 0,0.4,0
+            elements:
+              - item: default:wooden_chair
+                display-transform: NONE
+                shadow-radius: 0.4
+                shadow-strength: 0.5
+                billboard: FIXED
+                translation: 0,0.5,0
+            hitboxes:
+              - position: 0,0,0
+                type: interaction
+                blocks-building: true
+                invisible: true
+                width: 0.7
+                height: 1.2
+                interactive: true
+                seats:
+                  - 0,0,-0.1 0
+        loot:
+          template: default:loot_table/furniture
+          arguments:
+            item: default:wooden_chair
+```
+
+### Accessing CraftEngine Core Managers
+
+Use the main plugin instance to access all managers
+
+```java
+import net.momirealms.craftengine.core.plugin.CraftEngine;
+import net.momirealms.craftengine.core.block.BlockManager;
+import net.momirealms.craftengine.core.item.ItemManager;
+import net.momirealms.craftengine.core.entity.furniture.FurnitureManager;
+import net.momirealms.craftengine.core.pack.PackManager;
+import net.momirealms.craftengine.core.plugin.Config;
+
+public class ManagerAccessExample {
+
+    public void accessManagers() {
+        // Get CraftEngine instance
+        CraftEngine plugin = CraftEngine.instance();
+
+        // Access various managers
+        BlockManager blockManager = plugin.blockManager();
+        ItemManager<?> itemManager = plugin.itemManager();
+        FurnitureManager furnitureManager = plugin.furnitureManager();
+        PackManager packManager = plugin.packManager();
+
+        // Access configuration
+        Config config = plugin.config();
+
+        // Check plugin state
+        boolean isReloading = plugin.isReloading();
+        boolean isInitializing = plugin.isInitializing();
+
+        // Load/reload content
+        if (!isReloading) {
+            plugin.reload();
+        }
+
+        // Generate resource pack manually
+        packManager.generateResourcePack();
+    }
+}
+```
+
+## Integration and Use Cases
+
+CraftEngine serves as a comprehensive custom content framework for Minecraft servers, eliminating the need for client-side mods while providing rich customization options. Primary use cases include creating themed server content with custom blocks and furniture for build servers, RPG items and equipment for adventure servers, decorative content for creative servers, and custom resource nodes for survival economy servers. The automatic resource pack generation ensures players receive all necessary assets without manual downloads, while the framework handles all technical complexity internally.
+
+The integration patterns support both YAML-driven configuration for content creators without programming knowledge and full Java API access for developers building complex interactions. The extensive compatibility layer allows seamless integration with existing plugin ecosystems, making it possible to use custom content alongside popular plugins like jobs systems, skills plugins, and economy systems. Event-driven architecture enables deep customization through Bukkit listeners, while the external item source system allows other plugins to integrate their custom items into CraftEngine's framework, creating a unified content management system across the entire server.

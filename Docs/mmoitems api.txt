@@ -1,0 +1,4097 @@
+### MMOItems Custom Recipe Example Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+A complete example demonstrating the structure and parameters for defining a custom recipe in MMOItems, including hidden status, ingredients, experience, and time.
+
+```config
+recipe_name:
+  hidden: false
+  item: MY_SWORD_TYPE MY_SWORD_ID 1
+  exp: 50
+  time: 40
+```
+
+--------------------------------
+
+### MMOItems Custom Recipe Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Provides a structural example of a custom recipe configuration. It illustrates the key fields like SMITHINGTABLERECIPE, which defines the recipe's structure and components for crafting items.
+
+```config
+SMITHINGTABLERECIPE:
+  # Example structure for a custom recipe
+  # This section would typically define ingredients, crafting time, etc.
+  # For instance:
+  # ingredients:
+  #   ITEM_ID_1: 1
+  #   ITEM_ID_2: 2
+  # output:
+  #   ITEM_ID_OUTPUT: 1
+  # amount: 1
+  # enchantments: "KEEP"
+```
+
+--------------------------------
+
+### MythicEnchants Support Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Enchant-Plugins
+
+An example implementation of the `EnchantPlugin` interface for the MythicEnchants plugin. It demonstrates how to check if an enchantment is a `MythicEnchant`, how to generate a `NamespacedKey` specific to the plugin, and how to add enchantments to an item's lore using `ItemStackBuilder` and `LoreBuilder`.
+
+```java
+public class MythicEnchantsSupport implements EnchantPlugin<MythicEnchant> {
+    @Override
+    public boolean isCustomEnchant(Enchantment enchant) {
+        return enchant instanceof MythicEnchant;
+    }
+    @Override
+    public NamespacedKey getNamespacedKey(String key) {
+        return new NamespacedKey(MythicEnchants.inst(), key);
+    }
+    public void handleEnchant(ItemStackBuilder builder, MythicEnchant enchant, int level) {
+        Validate.isTrue(level > 0, "Level must be strictly positive");
+        // Type cannot be changed. Must make sure that item is an enchanted book
+        if (!builder.getMeta().hasItemFlag(ItemFlag.HIDE_ENCHANTS))
+            builder.getLore().insert(0, LoreParser.formatEnchantment(enchant, level));
+    }
+}
+```
+
+--------------------------------
+
+### MMOItems Station Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts/diff
+
+Example YAML snippet for configuring a crafting station in MMOItems. It defines the station's display name and specifies which layout to use. Layouts are defined in separate YML files.
+
+```yaml
+# Name which will be displayed
+# when opening the station
+name: 'Example Crafting Station (#page#/#max#)'
+
+# The maximum amount of items in the crafting queue ie. the
+```
+
+--------------------------------
+
+### Example Recipe with Triggers
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe%20Triggers
+
+Demonstrates how to define triggers within a recipe configuration. Triggers are executed sequentially when the recipe is successfully crafted.
+
+```yaml
+recipes:
+    steel-sword:
+        ....
+        triggers:
+        - 'vanilla{type=STICK,amount=3}'
+```
+
+--------------------------------
+
+### Item Tier Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Tiers/diff
+
+An example of how an item tier is defined in the tiers.yml configuration file. This section shows the structure for defining a tier's display name and its associated drop table.
+
+```yml
+RARE:
+  name: '&6&lRARE'
+  # ... other tier configurations like drop tables
+```
+
+--------------------------------
+
+### MMOItems Item Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+This snippet demonstrates the configuration structure for an MMOItem, including its base stats, crafting recipe, and associated sound effects for actions like attacking, picking up, or consuming.
+
+```config
+campfire:
+  '1':
+    item: COD
+    time: 100
+    experience: 10.0
+smithing:
+  '1':
+    input1: DIAMOND_SWORD
+    input2: DIAMOND
+    craft-permission: youneedthis.tocraft
+    crafted-amount: 10.0
+sounds:
+  on-attack:
+    sound: entity.generic.drink
+    volume: 1.0
+    pitch: 1.0
+  on-pickup:
+    sound: entity.generic.drink
+    volume: 1.0
+    pitch: 1.0
+  on-consume:
+    sound: entity.generic.drink
+```
+
+--------------------------------
+
+### Crafting Station Example Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Defines a crafting station with a specific name format, maximum queue size, and materials for filling slots and indicating no-recipe states.
+
+```yaml
+name: 'Steel Crafting Station (#page#/#max#)'
+max-queue-size: 10
+items:
+  fill:
+    material: AIR
+  no-recipe:
+    material: GRAY_STAINED_GLASS_PANE
+```
+
+--------------------------------
+
+### Crafting Station Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station%20Layouts
+
+Example YAML configuration for a crafting station. This defines the station's display name, the maximum number of items that can be crafted simultaneously, and the sound played upon action completion. The 'layout' node would reference a specific layout file.
+
+```YAML
+# Name which will be displayed
+# when opening the station
+name: 'Example Crafting Station (#page#/#max#)'
+# The maximum amount of items in the crafting queue ie. the
+# max number of items players are able to craft simultaneously.
+# Must be between 1 and 64.
+max-queue-size: 10
+# The sound that plays whenever an action is
+# completed in the crafting station.
+# GET SOUND NAMES HERE:
+# https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
+sound: ENTITY_EXPERIENCE_ORB_PICKUP
+```
+
+--------------------------------
+
+### MythicMobs Ice Bolt Skill Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Abilities/diff
+
+This snippet shows an example configuration for an 'Ice Bolt' skill in MythicMobs. It is part of a guide explaining how to use ability modifiers within MythicMobs skills, demonstrating the setup for a damaging ice projectile.
+
+```YAML
+```yaml
+IceBolt:
+  # ... (skill definition continues)
+```
+```
+
+--------------------------------
+
+### Recipe Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe%20Conditions
+
+Demonstrates how to define conditions within a recipe configuration file. Conditions are listed under the 'conditions' key, with each condition specified as a string containing its type and parameters.
+
+```yaml
+recipes:
+    steel-sword:
+        output: 'mmoitems{type=SWORD,id=STEEL_SWORD}'
+        ...
+        conditions:
+        - 'level{level=5,consume=true}'
+        - 'permission{list="mmoitems.recipe.steel-sword,mmoitems.recipe.station.steel"}'
+        - 'placeholder{placeholder="%ac_Stat_Weight%~>~1"}'
+```
+
+--------------------------------
+
+### MMOItems Stat Configuration Examples
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Examples of common stat configurations for items within the MMOItems plugin. These settings define various attributes and behaviors of items, such as repair mechanics, ability types, resource management, and stat-based requirements or bonuses.
+
+```config
+repair-type: EXAMPLE_REPAIR_STAT
+ability: 
+ability1: 
+type: BLOODBATH
+mana: 3.0
+mode: RIGHT_CLICK
+upgrade: 
+workbench: true
+health-regeneration: 10.0
+mana-regeneration: 10.0
+max-stamina: 10.0
+stamina-regeneration: 10.0
+additional-experience: 50.0
+faction-damage-enemy: 50.0
+required-dexterity: 10.0
+required-strength: 10.0
+profession-enchanting: 10.0
+profession-smithing: 10.0
+profession-mining: 10.0
+```
+
+--------------------------------
+
+### Open Plugin GUIs
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+Provides examples of opening various in-game graphical user interfaces provided by the MMOItems plugin, such as recipe lists, workbenches, and item edition GUIs.
+
+```Java
+new AdvancedTypeList(player, 1).open(); // opens the recipe list at type selection
+```
+
+```Java
+new AdvancedRecipeList(player, MMOItems.plugin.getTypes().get("SWORD")).open(); // opens the recipe list (after selecting item type)
+```
+
+```Java
+new AdvancedRecipeWorkbench(player).open(); // opens the advanced workbench
+```
+
+```Java
+new ItemEdition(player, MMOItems.plugin.getTypes().get("STAFF"), "EARTH_STAFF").open(); // opens the edition gui for a specific item
+```
+
+--------------------------------
+
+### MythicEnchantsSupport Class
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Enchant-Plugins/diff
+
+Example Java class declaration for integrating MythicEnchants. This class implements the `EnchantPlugin` interface, suggesting it's part of a system for managing custom enchantments.
+
+```Java
+public class MythicEnchantsSupport implements EnchantPlugin<MythicEnchant> {
+    // ... implementation details ...
+}
+```
+
+--------------------------------
+
+### Smoker Recipe Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This snippet demonstrates the configuration structure for a custom Smoker recipe within MMOItems. It defines the base item properties and the specific crafting type.
+
+```yaml
+SMOKERRECIPE:
+  base:
+    name: Smoker
+    material: WATER_BUCKET
+  crafting:
+
+```
+
+--------------------------------
+
+### Configure Recipe Crafting Time
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+This example shows how to set a crafting time for a recipe. The `crafting-time` parameter specifies the duration in seconds that players will spend crafting the item, triggering a progress bar.
+
+```yaml
+recipes:
+  steel-sword:
+    # ... other recipe configurations ...
+    crafting-time: 10
+```
+
+--------------------------------
+
+### Crafting Station Configuration File Structure
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Example structure for a YML configuration file defining a crafting station. Crafting stations are stored in the /MMOItems/crafting-stations folder, with each YML file representing a unique station ID.
+
+```yml
+# Example YML for a crafting station
+# File name corresponds to the station-id
+# Example: blacksmith_station.yml
+
+# Station display name (optional)
+# display-name: "Blacksmith's Forge"
+
+# Station GUI title
+title: "&lBlacksmith Forge"
+
+# Station size (rows)
+size: 5
+
+# Recipes for this station
+recipes:
+  - "sword_recipe_1"
+  - "armor_recipe_2"
+
+# Conditions for using the station (e.g., permissions, levels)
+# conditions:
+#   permission: "mmoitems.crafting.blacksmith"
+#   level: 10
+
+# Item that represents the station in the world (optional)
+# item: "BLACKSMITH_HAMMER"
+
+# Other configuration options like pagination, etc.
+```
+
+--------------------------------
+
+### Item Set Permissions Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Sets/diff
+
+This snippet shows an example of how permissions are granted for item sets. It lists specific permission strings associated with a set, likely for access control or feature activation within the MMOItems system.
+
+```yaml
+granted-permissions:
+  - 'hatred.fullset'
+  - 'whatever.permission'
+  - '......'
+```
+
+--------------------------------
+
+### MMOItems Cooking Recipe Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This section describes the configuration for custom cooking recipes in MMOItems, applicable to furnaces, blast furnaces, smokers, and campfires. It outlines how to define ingredients, outputs, and crafting mechanics for these blocks. The example shows the structure for a basic cooking recipe.
+
+```CONFIG
+COOKINGRECIPE:
+  # Example configuration for a cooking recipe
+  # This structure defines the inputs, outputs, and conditions for crafting
+  # within specific in-game blocks like furnaces or campfires.
+  # Specific parameters would include item IDs, quantities, and potential modifiers.
+```
+
+--------------------------------
+
+### Keep Lore Prefix
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+Preserves lore lines that begin with a specific prefix, commonly a color code. Be aware that this can lead to duplicate lore if the template also has lore starting with this prefix.
+
+```text
+kept-lore-prefix
+```
+
+--------------------------------
+
+### Retrieve Item Tier Instances
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+Shows how to access the TierManager to check for the existence of a tier, retrieve a specific item tier by its ID, or get a collection of all loaded item tiers.
+
+```Java
+TierManager tiers = MMOItems.plugin.getTiers();
+boolean exists = tiers.has("RARE");
+ItemTier rare = tiers.get("RARE");
+Collection<ItemTier> all = tiers.getAll();
+```
+
+--------------------------------
+
+### Get MMOItems Ability Instance
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main-API-Features/diff
+
+Retrieves an instance of an ability from the AbilityManager using its unique ID. This requires access to the MMOItems plugin and its static methods to interact with the ability system.
+
+```Java
+Ability ability = MMOItems.plugin.getAbilities().get("FIREBOLT");
+```
+
+--------------------------------
+
+### MMOItems Sword Stat Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Example configuration block for defining sword stats in MMOItems. This format specifies base properties, material, durability, custom data, and display names/lore.
+
+```yaml
+WIKISWORD:
+  base:
+    material: NETHERITE_SWORD
+    revision-id: 2
+    durability: 100.0
+    custom-model-data: 5.0
+    max-durability: 1000.0
+    will-break: true
+    name: '&cThis is a test sword.'
+    lore:
+```
+
+--------------------------------
+
+### Item Modifier Configuration Example
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Modifiers/diff
+
+Illustrates how item modifiers are specified within a generation template. This typically involves defining a list of modifiers that can be applied to generated items, potentially with associated probabilities or conditions.
+
+```yaml
+# Example item
+# This section would define the item's base properties and modifiers.
+# Modifiers are packets of item stats with a chance to be added.
+# Example: Sharp modifier adds +3 Atk Damage.
+# Example: Toxic modifier adds on-hit poison ability.
+# Modifiers can have different selection chances and be tied to item tiers.
+# The following is a conceptual representation of how modifiers might be listed:
+
+# modifiers:
+#   - name: Sharp
+#     chance: 0.75
+#     tier: common
+#   - name: Toxic
+#     chance: 0.50
+#     tier: rare
+#   - name: Swiftness
+#     chance: 0.90
+#     tier: common
+
+```
+
+--------------------------------
+
+### MMOItems Generate Item Command
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Commands/diff
+
+The /mi generate command is used to create items within the MMOItems system. It requires a player argument and can accept additional arguments for customization. Refer to the 'Obtaining an item' guide for more detailed usage and options.
+
+```APIDOC
+/mi generate <player> (extra-args)
+  - Generates an item for the specified player.
+  - Parameters:
+    - <player>: The target player's username or identifier.
+    - (extra-args): Optional arguments to customize the generated item. See 'Obtaining an item' for details.
+  - Usage Example:
+    /mi generate Notch
+    /mi generate Steve mythical_sword tier:3
+```
+
+--------------------------------
+
+### Example MMOItems Modifier Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Modifiers/diff
+
+This snippet demonstrates the configuration format for defining item modifiers in MMOItems. It specifies the modifier's prefix and the stats it applies, such as abilities with types like 'poison' and triggers like 'on-hit'. The format is identical to that used for base item data in item generation templates.
+
+```yaml
+toxic:
+  prefix: '&2Toxic'
+  stats:
+    ability:
+      type: poison
+      type: on-hit
+```
+
+--------------------------------
+
+### NBT Tagging for Enchants
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Enchant-Plugins/diff
+
+Illustrates how some enchant plugins, like AdvancedEnchants, store enchant data using NBT tags. The example shows a tag format `ae_enchant:thorns` where the enchant name is the key and its level is the tag value.
+
+```APIDOC
+NBT Tag Example:
+  Key: `ae_enchant:thorns`
+  Value: Enchant level (e.g., integer)
+```
+
+--------------------------------
+
+### MythicLib Placeholders Reference
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Placeholders/diff
+
+Provides guidance for users who cannot find a specific placeholder. It directs them to check the MythicLib placeholders documentation as an alternative source.
+
+```APIDOC
+Refer to MYTHICLIB PLACEHOLDERS for additional placeholders.
+https://gitlab.com/phoenix-dvpmt/mythiclib/-/wikis/Placeholders
+```
+
+--------------------------------
+
+### Enable Vanilla Recipe Book
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Activates the vanilla Minecraft recipe book for MMOItem recipes. This setting is incompatible with the 'recipe-amounts' option and should not be enabled simultaneously.
+
+```yaml
+# Enables the vanilla recipe book for MMOItem recipes!
+# THIS IS NOT COMPATIBLE WITH RECIPE AMOUNTS!
+use-recipe-book: true
+```
+
+--------------------------------
+
+### Generate MMOItem ItemStack
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+Demonstrates how to create an MMOItem instance from a template and build an ItemStack. It also shows alternative methods for obtaining ItemStacks, including those scaled by player level or tier.
+
+```Java
+MMOItem mmoitem = MMOItems.plugin.getMMOItem(MMOItems.plugin.getTypes().get("SWORD"), "CUTLASS");
+ItemStack item = mmoitem.newBuilder().build();
+```
+
+```Java
+ItemStack item = MMOItems.plugin.getItem(MMOItems.plugin.getTypes().get("SWORD"), "CUTLASS");
+```
+
+```Java
+ItemStack item = MMOItems.plugin.getItem(type, id, level, tier);
+```
+
+```Java
+ItemStack item = MMOItems.plugin.getItem(type, id, playerdata);
+```
+
+--------------------------------
+
+### MMOItems Upgrade Recipe Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Upgrading-Recipes/diff
+
+Details the configuration syntax for upgrade recipes in MMOItems, contrasting it with standard crafting recipes. It specifies the use of 'item' instead of 'output' and outlines player requirements for using such recipes.
+
+```APIDOC
+Recipe Configuration Syntax:
+
+Upgrade recipes differ from crafting recipes by using the 'item' key instead of 'output' in the first line of the recipe configuration.
+
+Example:
+item: "STEEL_SWORD"
+
+Player Requirements for Upgrade Recipes:
+- Must meet a minimum player level (e.g., level 5).
+- Must possess specific items in their inventory (e.g., 4 steel ingots).
+- Must have the item they are trying to upgrade in their inventory (this is an implicit ingredient).
+
+Limitations:
+- Upgrade recipes do NOT support crafting time; they are always instant.
+- Failure to meet requirements results in an error message for the player.
+```
+
+--------------------------------
+
+### MMOItems Core Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Configuration options for enabling core features and managing vanilla recipe integration. This includes toggling abilities and items, and specifying which vanilla recipes to disable.
+
+```yaml
+abilities: false
+items: true
+
+# Disables non MMOItems from being crafted in the vanilla workbench.
+# Add [] if the list is empty.
+disable-vanilla-recipes: []
+# - DIAMOND_PICKAXE
+# - IRON_BLOCK
+
+# Options for the Item Revision System
+item-revision:
+```
+
+--------------------------------
+
+### Open Advanced Type List GUI
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main-API-Features/diff
+
+Demonstrates how to open the Advanced Type List GUI for players, typically used for recipe selection or item type browsing. This method requires a player object and an integer parameter specifying the initial type selection.
+
+```Java
+new AdvancedTypeList(player, 1).open(); // opens the recipe list at type selection
+```
+
+--------------------------------
+
+### Bukkit/Spigot Sound API Reference
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts/diff
+
+Provides a list of available sound identifiers that can be used in Minecraft server configurations, such as for crafting station completion sounds. This is a reference to the official Bukkit API documentation.
+
+```APIDOC
+Bukkit Sound API Reference:
+  URL: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
+  Description: Lists all available sound identifiers for use in Minecraft plugins.
+  Example Usage:
+    sound: ENTITY_EXPERIENCE_ORB_PICKUP
+    sound: BLOCK_ANVIL_USE
+    sound: MUSIC_DISC_13
+```
+
+--------------------------------
+
+### MMOItems Configuration Settings
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+This section details key configuration options for MMOItems, including item levels and event disabling rules. It explains how to control item behavior like pickup, crafting, clicking, and joining events, and provides context for automatic soulbinding.
+
+```yaml
+level: 1
+
+# Here you can disable individual events for when
+# Items should automatically soulbind to the player
+# (Requires the 'Auto-Bind' stat to be true)
+disable-on:
+  pickup: false
+  craft: false
+  click: false
+  join: true # 'true' recommended
+
+# Enable, disable, and customize the weapon effects here.
+```
+
+--------------------------------
+
+### Game Indicators Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Configures how game indicators, such as damage numbers, are displayed. Includes settings for decimal formatting and the display format string.
+
+```yaml
+game-indicators:
+  enabled: true
+  decimal-format: '0.#
+  format: '&c-#'
+  #format: '&c&l✦ #'
+```
+
+--------------------------------
+
+### Open Crafting Station GUI Command
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Command to open a specific crafting station GUI for a player. Requires the station ID and the target player's name.
+
+```command-line
+/mi stations open {station-id} {player}
+```
+
+--------------------------------
+
+### List Available Crafting Stations Command
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Command to display a list of all available crafting stations within the game.
+
+```command-line
+/mi stations list
+```
+
+--------------------------------
+
+### MMOItems Permissions Reference
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Permissions/diff
+
+Lists and describes the available permissions for the MMOItems plugin, specifying what actions or features each permission grants or bypasses.
+
+```APIDOC
+MMOItems Permissions:
+  mmoitems.admin:
+    Description: Permission for admin commands
+  mmoitems.bypass.level:
+    Description: Bypasses the item level restriction
+  mmoitems.bypass.item:
+    Description: Bypasses the item permission restriction
+  mmoitems.bypass.ability:
+    Description: Bypasses the ability permission restriction
+  mmoitems.bypass.class:
+    Description: Bypasses the MMOCore class restriction
+  mmoitems.update:
+    Description: Allows use of the /updateitem command
+```
+
+--------------------------------
+
+### MMOItems Recipe Input Syntax
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Defines the format for specifying ingredients in custom recipes. It distinguishes between custom MMOItems and vanilla Minecraft items, including quantity ranges.
+
+```APIDOC
+Recipe Input Syntax:
+
+- `m<MMOITEM_TYPE> <MMOITEM_ID> <quantity_range>`: Specifies a custom MMOItem as an ingredient.
+  - Example: `mEXAMPLE_MMOITEM_TYPE EXAMPLE_MMOITEM_ID 1.0..`
+- `v<VANILLA_ITEM_ID> <quantity_range>`: Specifies a vanilla Minecraft item as an ingredient.
+  - Example: `vSTONE - 1.0..`
+
+- `quantity_range`: Defines the amount of the item required. Can be a fixed number, a range (e.g., `1.0..2.0`), or open-ended (e.g., `1.0..`).
+- Slotting: The position of the input in the recipe definition corresponds to the crafting grid slot. Left inputs map to left slots, right inputs to right slots.
+```
+
+--------------------------------
+
+### MMOItems Item Creation Commands
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Creation/diff
+
+Commands used to create and manage items directly within the game using the MMOItems plugin. This method allows for in-game item creation without direct configuration file editing.
+
+```APIDOC
+MMOItems CLI Commands:
+
+/mi create <ITEM_TYPE> <YOUR_ITEM_ID>
+  - Creates a new item with the specified type and a unique ID.
+  - ITEM_TYPE: The category of the item (e.g., Sword, Axe, Tool). Use '/mi list type' to see available types.
+  - YOUR_ITEM_ID: A unique identifier for your item (e.g., STEEL_DAGGER). This is used for plugin commands.
+  - Upon creation, an item edition menu opens.
+
+/mi list type
+  - Lists all available item types that can be created.
+
+/mi edit <ITEM_TYPE> <YOUR_ITEM_ID>
+  - Opens the item edition menu for an existing item.
+  - Use this command if the edition menu was closed after item creation.
+```
+
+--------------------------------
+
+### MMOItems Item Commands Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Defines commands that can be executed when an item is used or triggered. Supports specifying command format, delay, and execution context (player or console).
+
+```config
+cmd0:
+  format: -d1 bc Hello, this is a test command.
+  delay: 0.0
+  op: true
+```
+
+```config
+cmd1:
+  format: -d1 bc Hello, this is a test command from console.
+  delay: 0.0
+  console: true
+```
+
+--------------------------------
+
+### Create Crafting Recipe Configuration (YAML)
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Details the process of creating a crafting recipe within a station's configuration file. It involves defining a `recipes` section and creating a unique configuration section for each recipe, identified by a recipe ID. This structure allows for multiple distinct recipes to be associated with a single crafting station.
+
+```yaml
+# Example of creating a crafting recipe section
+recipes:
+  my-custom-recipe-id:
+    # Recipe specific configurations go here
+```
+
+--------------------------------
+
+### MMOItems Placeholders with MVdWPlaceholderAPI
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Placeholders/diff
+
+This section explains how to access MMOItems placeholders through the MVdWPlaceholderAPI. It specifies the prefix and format required to retrieve MMOItems-specific data.
+
+```APIDOC
+Accessing MMOItems placeholders:
+{placeholderapi_mmoitems_...}
+```
+
+--------------------------------
+
+### Item Acquisition Command Arguments
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Obtaining-an-item/diff
+
+This section details the command-line arguments used for obtaining items, allowing players to specify attributes such as the target class, item level, tier, and type. These arguments provide fine-grained control over the item generation process.
+
+```APIDOC
+Command Arguments for Item Acquisition:
+
+-gimme
+  - Description: Adds the item to your inventory directly.
+  - Usage: -gimme
+
+-class:<class-name>
+  - Description: Guarantees the item is usable by the specified class.
+  - Parameters:
+    - class-name: The name of the class (e.g., Warrior, Mage).
+  - Usage: -class:Warrior
+
+-level:<integer>
+  - Description: Guarantees the item will have a specific level.
+  - Parameters:
+    - integer: The desired item level.
+  - Usage: -level:50
+
+-tier:<tier-name>
+  - Description: Guarantees the item will have a specified tier.
+  - Parameters:
+    - tier-name: The name of the item tier (e.g., Common, Rare).
+  - Usage: -tier:Rare
+
+-type:<item-type>
+  - Description: Allows selection of a specific item type.
+  - Parameters:
+    - item-type: The category of the item (e.g., Sword, Armor).
+  - Usage: -type:Sword
+```
+
+--------------------------------
+
+### Configure Crafting Station GUI (YAML)
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Defines the display name and appearance of a crafting station's GUI. It specifies the station's name, the item used to fill empty GUI slots, and the item used for slots where no recipe is present. This configuration directly impacts the visual presentation of the crafting interface.
+
+```yaml
+name: 'Arcane Forge (#page#/#max#)'
+items:
+  fill:
+    material: PINK_STAINED_GLASS_PANE
+    name: '&a'
+  no-recipe:
+    material: GRAY_DYE
+    name: '&a'
+```
+
+--------------------------------
+
+### MMOItems Permissions List
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Permissions
+
+Provides a comprehensive list of permissions available in the MMOItems project. Each entry specifies a permission string and a brief description of its functionality, such as granting access to admin commands or bypassing specific item restrictions.
+
+```APIDOC
+Permission | Description
+---|---
+mmoitems.admin | Permission for admin commands
+mmoitems.bypass.level | Bypasses the item level restriction
+mmoitems.bypass.item | Bypasses the item permission restriction
+mmoitems.bypass.ability | Bypasses the ability permission restriction
+mmoitems.bypass.class | Bypasses the MMOCore class restriction
+mmoitems.update | Allows use of the /updateitem command
+mmoitems.edit.op | Allows admins edit op-item-stats listed in the config.yml
+```
+
+--------------------------------
+
+### Configure Recipe Ingredient Amounts
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Enables the use of stack amounts for recipe ingredients in the MMOItems crafting system. This feature should not be enabled if the vanilla recipe book is used, as they are incompatible.
+
+```yaml
+# Allows you to use stack amounts for recipe ingredients.
+# This will enable a custom crafting system which
+# can cause lots of trouble. If you don't need specific
+# ingredient amounts then DO NOT enable this!
+recipe-amounts: false
+```
+
+--------------------------------
+
+### Configure World Generation Templates
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/World-Generation-Templates/diff
+
+This snippet illustrates the configuration format for defining world generation templates. It shows how to specify world names like 'world_nether' and provides guidance on configuring biome inclusion, referencing Spigot documentation for biome names.
+
+```config
+template-id: 
+...
+  - world_nether # Just like nether quartz
+...
+The format is the same for biomes, just use `biomes` instead of `worlds` and input the biomes names ([spigot docs](https://hub.spigotmc.org/javadocs/spigot/org/bukkit/block/Biome.html)).
+```
+
+--------------------------------
+
+### MMOItems Item Template Options
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item%20Templates
+
+Lists and describes the available configuration options for item templates in MMOItems. These options control aspects like item tiering, level generation, and modifier application order.
+
+```APIDOC
+Item Template Options:
+  - roll-modifier-check-order: Scrambles the item modifiers list on item generation.
+  - tiered: A random tier will be picked for your item if none is specified when generating the item. This accounts for the `/mi generate` command, but also for station crafting recipes!
+  - level-item: A random item level will be picked for your item if none is specified when generating the item.
+  - capacity: Can be used to impose a formula for modifier capacity to your item without having to use an item tier. It overrides both the default modifier capacity formula as well as the formula provided by the tier of the generated item.
+    - capacity.base: Sets the base value for modifier capacity.
+    - capacity.scale: Sets the scaling factor for modifier capacity based on item level.
+
+```
+
+--------------------------------
+
+### Item Stat Configuration Explained
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Templates/diff
+
+This section explains the parameters used to define item statistics in MMOItems configuration files. It covers 'base' for the default value, 'scale' for level-based increases, and 'spread'/'max-spread' for random fluctuations around the average stat value.
+
+```YAML
+ITEM_TEMPLATE:
+  base:
+    attack-speed: 1.7
+```
+
+--------------------------------
+
+### MMOItems Recipe Trigger Types
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe%20Triggers
+
+Lists and describes the available trigger types for recipes in MMOItems, including their specific formatting and parameters for execution.
+
+```APIDOC
+MMOITEMS_RECIPE_TRIGGERS:
+  - name: message
+    description: Sends a message to the player.
+    format: "message{format=\"&aYour message here... \"}"
+    parameters:
+      - name: format
+        type: string
+        description: The message content, supports color codes.
+
+  - name: command
+    description: Makes the console perform a command.
+    format: "command{format=\"give dirt\",sender=OP}"
+    parameters:
+      - name: format
+        type: string
+        description: The command to execute.
+      - name: sender
+        type: enum
+        values: [PLAYER, CONSOLE, OP]
+        description: The entity that will execute the command.
+
+  - name: sound
+    description: Broadcasts a sound to the player.
+    format: "sound{sound=<SOUND_NAME>;volume=<VOLUME>;pitch=<PITCH>}"
+    parameters:
+      - name: sound
+        type: string
+        description: The name of the sound to play.
+      - name: volume
+        type: float
+        description: The volume of the sound (e.g., 1.0).
+      - name: pitch
+        type: float
+        description: The pitch of the sound (e.g., 1.0).
+
+  - name: vanilla
+    description: Gives a vanilla Minecraft item to the player.
+    format: "vanilla{type=DIAMOND;amount=3}"
+    parameters:
+      - name: type
+        type: string
+        description: The ID of the vanilla item.
+      - name: amount
+        type: integer
+        description: The quantity of the item to give.
+
+  - name: mmoitem
+    description: Gives an MMOItem to the player.
+    format: "mmoitem{type=SWORD;id=FALCON_BLADE;amount=1}"
+    parameters:
+      - name: type
+        type: string
+        description: The type of the MMOItem (e.g., SWORD, AXE).
+      - name: id
+        type: string
+        description: The unique ID of the MMOItem.
+      - name: amount
+        type: integer
+        description: The quantity of the MMOItem to give.
+
+  - name: mmskill
+    description: Casts a MythicMobs skill.
+    format: "mmskill{id=MythicMobsSkillInternalName}"
+    parameters:
+      - name: id
+        type: string
+        description: The internal name of the MythicMobs skill to cast.
+
+  - name: experience
+    description: Gives the player MMOCore experience.
+    format: "exp{profession=<PROFESSION>;amount=<AMOUNT>}"
+    parameters:
+      - name: profession
+        type: string
+        description: The name of the MMOCore profession to grant experience to.
+      - name: amount
+        type: integer
+        description: The amount of experience points to grant.
+```
+
+--------------------------------
+
+### Vanilla Recipe Ingredient Format
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Ingredients/diff
+
+Defines the syntax for specifying vanilla Minecraft items as ingredients in crafting recipes. It uses a simplified format for standard items.
+
+```APIDOC
+vanilla{type=STICK,amount=2}
+
+- type: The Minecraft item ID (e.g., STICK, IRON_INGOT).
+- amount: The quantity of this vanilla item required for the recipe.
+```
+
+--------------------------------
+
+### Recipe System Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Manages recipe system settings, including the use of stack amounts for ingredients and compatibility with the vanilla recipe book. Enabling recipe amounts enables a custom crafting system that may cause issues. The vanilla recipe book is not compatible with custom recipe amounts.
+
+```yaml
+recipes:
+    recipe-amounts: false
+    use-recipe-book: true
+```
+
+--------------------------------
+
+### Placeholder Condition
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Conditions/diff
+
+Checks a player's placeholder value against a specified number or string using various comparators (<, <=, >, >=, ==, =, !=, equals). The `display` parameter customizes lore text.
+
+```configuration
+placeholder{placeholder="<Placeholder>~<Comparator>~<Value>";display="...."}
+```
+
+--------------------------------
+
+### Define Smithing Table Recipe Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This snippet demonstrates the structure for defining a custom recipe for the Smithing Table. It specifies the base crafting station and required materials, with a placeholder for crafting inputs.
+
+```yaml
+SMITHINGTABLERECIPE:
+  base:
+    name: Smithing Table
+    material: WATER_BUCKET
+  crafting:
+```
+
+--------------------------------
+
+### MMOItems Recipe Config: Experience Gain
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Dictates how much experience the recipe should give the player upon completion.
+
+```config
+exp: 100
+```
+
+--------------------------------
+
+### Manage Ability Permissions in MMOItems
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Controls which players can use specific item abilities based on permission nodes. Each ability requires a corresponding permission node to be granted, following the pattern 'mmoitems.ability.ability-id'.
+
+```YAML
+permissions:
+  # General permission node for abilities: mmoitems.ability.ability-id
+  # Ex: - mmoitems.ability.fire-meteor
+  # - mmoitems.ability.slow
+  # - mmoitems.ability.cursed-fangs
+  # etc.
+```
+
+--------------------------------
+
+### Healing Indicators Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Configures how healing effects are displayed as game indicators. Includes settings for enabling the feature, decimal formatting, and the display format string.
+
+```yaml
+heal:
+  enabled: true
+  decimal-format: '0.#
+  format: '&a+#'
+  #format: '&a&l❤ #'
+```
+
+--------------------------------
+
+### MMOItems Base Item Stats Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Templates/diff
+
+Details the 'base' configuration section for item templates, which defines core item statistics. It explains how stats like attack damage scale with item level using a formula (e.g., `6 + 1.2 * <level>`). The format is similar to `/MMOItems/item` config files.
+
+```yaml
+ITEM_TEMPLATE:
+  base:
+    attack-damage:
+      base: 6
+      scale: 1.2
+```
+
+--------------------------------
+
+### Define Steel Sword Recipe (YAML)
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Ingredients/diff
+
+This snippet demonstrates how to define a recipe for the 'Steel Sword' item within a configuration file. It specifies the output item using a custom format, likely for a game mod or plugin, detailing its type and ID.
+
+```yaml
+recipes:
+  steel-sword:
+    output: 'mmoitems{type=SWORD,id=STEEL_SWORD}'
+```
+
+--------------------------------
+
+### MMOItems Item Sound and Placement Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Defines the sound effect played when an item is placed and its associated audio properties like volume and pitch.
+
+```config
+on-placed:
+  sound: entity.generic.drink
+  volume: 1.0
+  pitch: 1.0
+```
+
+--------------------------------
+
+### MMOItems Recipe Config: Crafting Time
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Dictates how long it takes to cook/smelt the ingredients, measured in game ticks.
+
+```config
+time: 20
+```
+
+--------------------------------
+
+### MMOItems Configuration Options
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+This snippet details key configuration parameters for the MMOItems plugin. It covers settings such as recoil values, enabling/disabling the item glow feature, and defining name suffixes for upgraded items. These settings are typically found in the plugin's config.yml file and require a server reload to take effect.
+
+```yaml
+recoil: 0.1
+
+# Enable/disable the item glow feature. Make sure you
+# reload your server when changing this option. This
+# option might take extra performance so consider toggling
+# it off if you have players or mobs dropping many items.
+item-glow: true
+
+item-upgrading:
+  # Display name suffix for upgraded items.
+  name-suffix: '&f &e(+#lvl#)'
+```
+
+--------------------------------
+
+### Retrieve Item Type Instances
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+Illustrates how to obtain the TypeManager to check if an item type exists, retrieve a specific item type by its ID, or fetch all available item types.
+
+```Java
+TypeManager types = MMOItems.plugin.getTypes();
+boolean exists = types.has("SWORD");
+Type sword = types.get("SWORD"); // e.g get the type which ID is SWORD
+Collection<Type> all = types.getAll(); // get all loaded types
+```
+
+--------------------------------
+
+### General Game Mechanics Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Configuration options that control core game mechanics such as ability and item cooldowns, resource availability, and combat-related features. These settings are typically boolean values.
+
+```yml
+ability-cooldown: true
+item-cooldown: true
+not-enough-mana: true
+not-enough-stamina: true
+two-handed: true
+cant-use-item: true
+mitigation: true
+item-break: false
+```
+
+--------------------------------
+
+### MMOItems Recipe Ingredient Format
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Ingredients/diff
+
+Defines the syntax for specifying custom MMOItems as ingredients in crafting recipes. It includes item type, ID, and quantity.
+
+```APIDOC
+mmoitem{type=MATERIAL,id=STEEL_INGOT,amount=4}
+
+- type: The category of the MMOItem (e.g., MATERIAL, WEAPON, ARMOR).
+- id: The specific identifier for the MMOItem within its type.
+- amount: The quantity of this item required for the recipe.
+```
+
+--------------------------------
+
+### Define Steel Sword Upgrade Recipe
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Upgrading-Recipes/diff
+
+This YAML configuration defines an upgrade recipe for the 'Steel Sword'. It specifies the output item type and ID, required ingredients (4 STEEL_INGOTs), and implies conditions like player level (mentioned in text but not in the snippet itself). Upgrading recipes are instant and do not support crafting time.
+
+```yaml
+steel-sword-upgrade:
+  item:
+    type: SWORD
+    id: STEEL_SWORD
+  conditions:
+  ingredients:
+    - 'mmoitem{type=MATERIAL,id=STEEL_INGOT,amount=4}'
+```
+
+--------------------------------
+
+### MMOItems API - NBTItem Usage
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+Provides an overview of the NBTItem class for interacting with MMOItems NBT data. It covers methods for retrieving NBT data, checking for specific tags, and accessing tag values, noting differences for Minecraft versions.
+
+```APIDOC
+NBTItem:
+  __init__(ItemStack itemStack)
+    - Initializes an NBTItem from a Bukkit/Spigot ItemStack.
+    - For Minecraft versions < 1.14, this uses NMS (Net Minecraft Server) code.
+    - For Minecraft versions >= 1.14, it leverages the ItemMeta API.
+
+  get(ItemStack itemStack): NBTItem
+    - Static method to retrieve an NBTItem instance for a given ItemStack.
+
+  hasType(): boolean
+    - Checks if the NBTItem contains the MMOITEMS tag indicating it's an MMOItem.
+    - Returns true if the tag is present, false otherwise.
+
+  getType(): string
+    - Retrieves the item type string (e.g., "SWORD", "AXE", "DAGGER") from the NBT data.
+    - This method performs a map lookup and is recommended to be cached if called frequently.
+    - Returns null or throws an error if the type tag is not found or invalid.
+
+  getString(String key): string
+    - Retrieves the string value associated with the specified NBT tag key.
+    - Example: nbtItem.getString("MMOITEMS_ITEM_ID")
+
+  hasTag(String key): boolean
+    - Checks if a specific NBT tag exists within the NBTItem.
+
+Dependencies:
+  - Bukkit/Spigot API
+  - NMS (for older Minecraft versions)
+
+Limitations:
+  - NBT handling can vary slightly between Minecraft versions.
+```
+
+--------------------------------
+
+### MMOItems Item Requirement Settings
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Defines the requirements a player must meet to use or equip an item. This includes level requirements and class restrictions.
+
+```APIDOC
+MMOItems Configuration - Item Requirements:
+
+- required-level: number
+  - Description: The minimum player level required to use the item.
+  - Example: 5.0
+
+- required-class: list of strings
+  - Description: A list of player classes that are allowed to use the item. If empty, no class restriction applies.
+  - Example:
+    - ARCHER
+    - WARRIOR
+```
+
+--------------------------------
+
+### Reload MMOItems Station Layouts Command
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts/diff
+
+Executes a command to reload all station layouts within the MMOItems plugin. This command is essential after making changes to layout configuration files to apply them.
+
+```console
+/mi stations reload
+```
+
+--------------------------------
+
+### Drop Table Configuration Options
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Drop-Tables/diff
+
+This snippet details configuration options for MMOItems drop tables. It covers general settings like unidentified-chance and disable-silk-touch, as well as block-specific configurations.
+
+```yaml
+unidentified-chance: the chance for your item to be unidentified when it drops.
+disable-silk-touch: when set to true, this will prevent the subtable from dropping any item if the block was mined with a silk touch pickaxe. This prevents item duplication glitches with blocks like ores.
+
+blocks:
+  DIAMOND_ORE:
+    # Specific configurations for Diamond Ore drops
+```
+
+--------------------------------
+
+### MMOItems Configuration Properties
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+This snippet outlines common configuration properties for MMOItems, including stats like max health, mana, movement speed, and crafting recipes. It defines how item attributes and crafting mechanics are specified in the project's configuration files.
+
+```config
+max-health: 10.0
+unstackable: true
+max-mana: 20.0
+knockback-resistance: 0.7
+movement-speed: 0.2
+two-handed: true
+equip-priority: 5.0
+perm-effects:
+  POISON: 1.0
+granted-permissions:
+  - tempperm.ree
+auto-soulbind: true
+item-cooldown: 10.0
+crafting:
+  shaped:
+    '1':
+      - diamond AIR AIR
+      - AIR diamond AIR
+      - AIR AIR netherite_block
+  shapeless:
+    '1':
+      - AIR
+```
+
+--------------------------------
+
+### MMOItems Projectile Damage Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Templates/diff
+
+Illustrates the configuration for projectile damage stats within an item template. This includes setting the base projectile damage, how it scales with item level, and parameters for spread and maximum spread.
+
+```yaml
+ITEM_TEMPLATE:
+  base:
+    projectile-damage:
+      base: 10
+      scale: 3
+      spread: 0.1
+      max-spread: 0.3
+```
+
+--------------------------------
+
+### Define Crafting Station GUI Layout
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts/diff
+
+Specifies the layout of the crafting station's graphical user interface. The 'slots' parameter defines the total number of slots, which must be between 9 and 54 and a multiple of 9. Custom layouts can be defined in separate files.
+
+```config
+# This is how the gui looks. You can define your own in crafting-stations/layouts by creating a new file with the name of the file as the id.
+layout: expanded
+
+# The size of the gui. Must be between 9 and 54 and must be a multiple of 9.
+slots: 54
+
+layout:
+```
+
+--------------------------------
+
+### Configure MMOItems Station Layouts (YAML)
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station%20Layouts
+
+This YAML configuration defines the layout for crafting stations in the MMOItems plugin. It specifies the total GUI slots, the arrangement of recipe slots, queue slots, and navigation buttons. The 'slots' parameter must be between 9 and 54 and a multiple of 9.
+
+```YAML
+# The size of the gui. Must be
+# between 9 and 54 and must be a multiple of 9.
+slots: 54
+layout:
+  # The slots that display the station's recipes.
+  recipe-slots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 21, 22, 23]
+  # The slots that display the station's queue slots.
+  queue-slots: [38, 39, 40, 41, 42]
+  # The slots that display the arrows to navigate
+  # the station's recipes.
+  # Only shows when it can be used.
+  recipe-previous-slot: 20
+  recipe-next-slot: 24
+  # The slots that display the arrows to navigate
+  # the station's queue.
+  # Only shows when it can be used.
+  queue-previous-slot: 37
+  queue-next-slot: 43
+```
+
+--------------------------------
+
+### Configure Monster Item Drops with drops.yml
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Drop-Tables/diff
+
+This YAML snippet illustrates the configuration structure for `drops.yml`, used to define item drops for monsters. It shows how to specify drops for different monster types and explains the concept of subtables with coefficients for determining drop chances.
+
+```YAML
+monsters:
+  ZOMBIE:
+    # Example configuration for zombie drops.
+    # The actual content would define items and their drop chances.
+    # Subtables can be used with coefficients to influence selection probability.
+    # Formula for subtable chance: <subtable-coefficient> / <sum-of-all-subtable-coefficients>
+```
+
+--------------------------------
+
+### In-Game Damage Indicators Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Settings related to displaying damage indicators in-game. This feature often relies on external plugins and may require server reloads upon changes.
+
+```yml
+# Displays in-game damage indicators.
+# Requires HolographicDisplays/Holograms to work.
+# Requires /reload when enabled/disabled.
+```
+
+--------------------------------
+
+### MMOItems YAML Item Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Creation/diff
+
+Defines the basic structure for a custom item in a YAML configuration file for the MMOItems plugin. It requires a unique item ID and specifies the base material, which can be referenced from Bukkit Material documentation. This configuration is placed within the `/plugins/MMOItems/item/<item_type_name>/` directory.
+
+```yaml
+YOUR_ITEM_ID:
+  material: YOUR_ITEM_MATERIAL
+```
+
+--------------------------------
+
+### Steel Sword Recipe Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Configures a 'steel-sword' recipe with a crafting time of 10 seconds and enables the 'hide-when-locked' option. This option prevents the recipe from displaying in the GUI if its conditions are not met.
+
+```yaml
+recipes:
+  steel-sword:
+    crafting-time: 10 # time in seconds
+    options:
+      hide-when-locked: true
+```
+
+--------------------------------
+
+### MMOItems Crafting Station Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts
+
+Configuration settings for a crafting station, including the maximum number of items that can be crafted simultaneously and the sound played upon completion. It also specifies the GUI layout to be used.
+
+```yaml
+max-queue-size: 10
+sound: ENTITY_EXPERIENCE_ORB_PICKUP
+layout: expanded
+```
+
+--------------------------------
+
+### Permission Condition
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Conditions/diff
+
+Enforces that players must possess specific permissions to utilize a recipe. An optional `display` parameter can be used to show the condition in item lore.
+
+```configuration
+permission{list="<perm1>,<perm2>";display="...."}
+```
+
+--------------------------------
+
+### Shaped Crafting Recipe Structure
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Defines the structure for a shaped crafting recipe. It includes the input grid layout and the output definition. Empty slots must be explicitly defined.
+
+```config
+shaped:
+  '1':
+    input:
+      - Slot 1|Slot 2|Slot 3
+      - Slot 4|Slot 5|Slot 6
+      - Slot 7|Slot 8|slot 9
+  '2':
+    output:
+      # Specifies the item(s) produced by the recipe.
+      # Can also define items that are not consumed.
+      # Example: output: "MY_ITEM 1"
+
+# To represent an empty slot in the input grid, use:
+# v AIR 0 1
+```
+
+--------------------------------
+
+### Define Smoker Recipe for Stone Bricks
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This snippet defines a custom cooking recipe for the MMOItems plugin. It specifies the recipe type, base properties, required material, crafting station (smoker), input items, hidden status, output item, experience awarded, and crafting time.
+
+```yaml
+COOKINGRECIPE:
+  base: 
+  name: Cooking Recipe
+  material: WATER_BUCKET
+  crafting:
+    smoker:
+      input: []
+  hidden: true
+  item: v STONE_BRICKS - 1.0..
+  exp: 10.0
+  time: 10.0
+```
+
+--------------------------------
+
+### MMOItems Plugin Configuration Options
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+This YAML configuration file defines various settings for the MMOItems Spigot plugin. It covers options such as update notifications, inventory iteration behavior, locked skins, and the enablement of abilities in the player's offhand. Some settings may require a server reload or can impact performance.
+
+```YAML
+#
+# ███    ███ ███    ███  ██████  ██ ████████ ███████ ███    ███ ███████
+# ████  ████ ████  ████ ██.  .██ ██    ██    ██      ████  ████ ██
+# ██ ████ ██ ██ ████ ██ ██    ██ ██    ██    █████   ██ ████ ██ ███████
+# ██  ██  ██ ██  ██  ██ ██\__/██ ██    ██    ██      ██  ██  ██      ██
+# ██      ██ ██      ██  ██████  ██    ██    ███████ ██      ██ ███████
+#
+# a Spigot Plugin by Team Requiem
+# DO NOT TOUCH
+config-version: 8
+# Notifies players with the 'mmoitems.update-notify' perm node when
+# they join the server if a new update is available for download.
+# Requires /reload when changed.
+update-notify: true
+# Enable/disable the plugin iterating over the whole player inventory
+# instead of just the players armor and held items.
+# This option is required for the Ornament item type, however
+# it CAN cause lag and/or take a lot of memory.
+iterate-whole-inventory: false
+# When this is set to true, skins can only be applied to an item ONCE. 
+locked-skins: true
+# Enable/Disable abilities in the players offhand, stops
+# players using abilities when interacting with chests, mining etc.
+
+```
+
+--------------------------------
+
+### MMOItems Crafting Station Layout Configuration (YAML)
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts
+
+Defines the structure and properties for a crafting station's GUI and behavior using YAML format. This configuration file determines the station's name and other visual/functional aspects.
+
+```YAML
+# Name which will be displayed
+# when opening the station
+name: 'Example Crafting Station (#page#/#max#)'
+# The maximum amount of items in the crafting queue ie. the
+
+```
+
+--------------------------------
+
+### Configure Item Abilities
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Defines the configuration for item abilities, including enabling/disabling, cooldown periods, and power levels for various weapon types like staffs, gauntlets, and blunt weapons. Specific sub-abilities like AOE can also be configured.
+
+```yaml
+item-ability:
+  staff:
+    enabled: true
+    cooldown: 30
+    power: 1
+  gauntlet:
+    enabled: true
+    cooldown: 60
+    power: 1
+  blunt:
+    aoe:
+      enabled: true
+```
+
+--------------------------------
+
+### MMOItems Custom Recipe Configuration Structure
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This snippet illustrates the YAML configuration structure for defining custom crafting recipes in MMOItems. It shows how to register multiple recipes for a crafting station and specify recipe inputs.
+
+```yaml
+'1': # Registers the first recipe for the crafting type.
+  input: # Placeholder for recipe input definition.
+'2': # Registers a second recipe.
+  input: # Placeholder for recipe input definition.
+SMOKERANDFURNACERECIPE:
+  base:
+    name: Smoker # Defines the name of the crafting station or recipe category.
+```
+
+--------------------------------
+
+### Set Crafting Completion Sound
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts/diff
+
+Defines the sound played when a crafting action is completed. Refer to the Bukkit Sound API for available options.
+
+```config
+# The sound that plays whenever an action is completed in the crafting station.
+# GET SOUND NAMES HERE: 
+# https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
+sound: ENTITY_EXPERIENCE_ORB_PICKUP
+```
+
+--------------------------------
+
+### Available Recipe Trigger Types
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Triggers/diff
+
+Details the different types of triggers that can be used in recipes, along with their specific syntax and parameters. These triggers define actions performed when a recipe is crafted or otherwise processed.
+
+```APIDOC
+command:
+  Description: Makes the console perform a command.
+  Syntax: `command{format="<command_string>",sender=<SENDER_TYPE>}`
+  Parameters:
+    - format: The command string to execute. Can include placeholders.
+    - sender: Specifies who executes the command. Available senders: PLAYER, CONSOLE, OP.
+  Example: `command{format="give dirt",sender=OP}`
+
+sound:
+  Description: Broadcasts a sound to the player.
+  Syntax: `sound{sound=<SOUND_NAME>;volume=<VOLUME>;pitch=<PITCH>}`
+  Parameters:
+    - sound: The name of the sound to play.
+    - volume: The volume of the sound (e.g., 1.0).
+    - pitch: The pitch of the sound (e.g., 1.0).
+  Example: `sound{sound=entity.player.levelup;volume=1.0;pitch=1.0}`
+
+vanilla:
+  Description: Gives a vanilla Minecraft item to the player.
+  Syntax: `vanilla{type=<ITEM_TYPE>;amount=<QUANTITY>}`
+  Parameters:
+    - type: The type of the vanilla item (e.g., DIAMOND, IRON_INGOT).
+    - amount: The quantity of the item to give.
+  Example: `vanilla{type=DIAMOND;amount=3}`
+
+mmoitem:
+  Description: Gives an MMOItems item to the player.
+  Syntax: `mmoitem{type=<MMOITEM_TYPE>;id=<ITEM_ID>;amount=<QUANTITY>}`
+  Parameters:
+    - type: The type of the MMOItem (e.g., SWORD, ARMOR).
+    - id: The unique ID of the MMOItem (e.g., FALCON_BLADE).
+    - amount: The quantity of the item to give (optional, defaults to 1).
+  Example 1: `mmoitem{type=SWORD;id=FALCON_BLADE} 2`
+  Example 2: `mmoitem{type=SWORD;id=FALCON_BLADE;amount=1}`
+```
+
+--------------------------------
+
+### MMOItems Custom Recipe Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Defines the structure for creating custom crafting recipes. It specifies the crafting station type (e.g., smoker, furnace) and the input materials required for a recipe. The format uses nested keys to define recipe slots and their corresponding items.
+
+```config
+material: WATER_BUCKET
+
+crafting:
+  smoker:
+    '1':
+      input:
+        '2':
+          input:
+  furnace:
+    '1':
+      input:
+```
+
+--------------------------------
+
+### Item Leveling and Generation
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Configures how item levels are determined relative to player levels and the default capacity formula for items without a specified tier. This ensures items are appropriately scaled for player progression.
+
+```yaml
+item-level-spread: 2
+default-item-capacity:
+    base: 3
+    scale: 0
+    spread: 0
+    max-spread: 0
+```
+
+--------------------------------
+
+### MMOItems Combat Stats
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Configuration parameters for various combat-related statistics that can be applied to items, influencing player performance in combat.
+
+```APIDOC
+MMOItems Configuration - Combat Stats:
+
+- attack-damage: number
+  - Description: Adds a flat amount to the player's base attack damage.
+  - Example: 10.0
+
+- attack-speed: number
+  - Description: Modifies the player's attack speed. Higher values increase attack speed.
+  - Example: 10.0
+
+- critical-strike-chance: number
+  - Description: Increases the chance of landing a critical strike.
+  - Example: 5.0 (represents 5%)
+
+- critical-strike-power: number
+  - Description: Increases the damage multiplier for critical strikes.
+  - Example: 5.0 (represents 5% bonus damage)
+
+- block-power: number
+  - Description: Increases the effectiveness of blocking.
+  - Example: 5.0
+
+- block-rating: number
+  - Description: Increases the chance to successfully block an attack.
+  - Example: 5.0 (represents 5% chance)
+
+- block-cooldown-reduction: number
+  - Description: Reduces the cooldown after successfully blocking.
+  - Example: 5.0 (represents 5% reduction)
+
+- dodge-rating: number
+  - Description: Increases the chance to dodge an attack.
+  - Example: 5.0 (represents 5% chance)
+
+- dodge-cooldown-reduction: number
+  - Description: Reduces the cooldown after successfully dodging.
+  - Example: 5.0 (represents 5% reduction)
+
+- parry-rating: number
+  - Description: Increases the chance to parry an attack.
+  - Example: 5.0 (represents 5% chance)
+
+- parry-cooldown-reduction: number
+  - Description: Reduces the cooldown after successfully parrying.
+  - Example: 5.0 (represents 5% reduction)
+
+- cooldown-reduction: number
+  - Description: Reduces the cooldown of abilities and skills.
+  - Example: 5.0 (represents 5% reduction)
+```
+
+--------------------------------
+
+### MMOItems Item Template Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item%20Templates
+
+Defines the structure for an MMOItems item template using YAML. It includes basic item properties, generation options, and modifiers that affect item rarity and stats.
+
+```yaml
+LONG_SWORD:
+    # Basic template options
+    option:
+        tiered: true
+        level-item: true
+        roll-modifier-check-order: false
+        capacity:
+            base: 10
+            scale: 3
+    # Base item data
+    base:
+        material: IRON_SWORD
+        name: '&fLong Sword'
+        attack-speed: 1.6
+        attack-damage:
+            base: 6
+            scale: 1.2
+        required-level:
+            base: 0
+            scale: 1
+    # Template modifiers
+    modifiers: 
+        sharp:
+            chance: 0.3
+            prefix: '&fSharp'
+            stats:
+                attack-damage: 3
+                lore:
+                - '&7Much sharper!'
+
+```
+
+--------------------------------
+
+### Prefix/Suffix Priority System
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Modifiers/diff
+
+Explains how MMOItems handles multiple prefixes or suffixes on an item. It prioritizes modifiers based on a defined priority value, keeping only the highest priority one. If no priority is set, a default system is used.
+
+```text
+When a modifier is selected during item generation, its suffix/prefix is automatically applied to the item. If multiple prefixes/suffixes are added, MMOItems only keeps the prefixes/suffixes with the highest priority, e.g an item which has `Sharp` with prefix priority 0 (0 is default priority) and `Fiery` with prefix priority 1 will only display `Fiery`. If you don't want to use the prefix/suffix priority system, just define the prefix/suffix using this format:
+modifier:
+  prefix: "YourPrefix"
+  suffix: "YourSuffix"
+```
+
+--------------------------------
+
+### Reloading Station Layouts Command
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station%20Layouts
+
+Command to reload all station layouts after making changes to their configuration files. This command is executed in the game console or via an in-game command sender.
+
+```Console
+/mi reload stations
+```
+
+--------------------------------
+
+### Check if GUI is from MMOItems
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+Explains how to determine if a given inventory GUI was generated by the MMOItems plugin by checking its inventory holder against the PluginInventory class.
+
+```Java
+inventory.getHolder() instanceof PluginInventory
+```
+
+--------------------------------
+
+### Gem Sockets Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Defines the text used to create uncolored gem sockets, which are intended for any type of gem. This setting helps in standardizing the naming convention for socketable items.
+
+```yaml
+gem-sockets:
+    uncolored: 'Uncolored'
+```
+
+--------------------------------
+
+### MMOItems Gem Sockets Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Specifies the types of gem sockets available for an item, allowing for customization and enhancement possibilities.
+
+```config
+gem-sockets:
+  - RED
+  - GREEN
+  - Poop
+```
+
+--------------------------------
+
+### MMOItems Drop Table Syntax
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Drop-Tables/diff
+
+Defines the syntax for specifying an item drop within an MMOItems drop table. It includes the item identifier, drop chance, and optional parameters for item properties.
+
+```APIDOC
+mmoitems{type=ITEM_TYPE;id=ITEM_ID;[option=value]...} AMOUNT DROP_CHANCE
+
+Example:
+  mmoitems{type=SWORD;id=CUTLASS} 1 0.1
+  This drops 1 CUTLASS sword with a 10% chance.
+
+Optional Properties:
+  unidentified=PROBABILITY
+  Example:
+    mmoitems{type=SWORD;id=CUTLASS;unidentified=0.3} 1 0.1
+    This drops 1 CUTLASS sword with a 10% chance, and a 30% chance for it to be unidentified.
+
+Requirements:
+  - The 'type' and 'id' values MUST be capitalized.
+```
+
+--------------------------------
+
+### Configure Max Crafting Queue Size
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts/diff
+
+Sets the maximum number of items players can craft simultaneously in a station. The value must be between 1 and 64.
+
+```config
+# max number of items players are able to craft simultaneously.
+# Must be between 1 and 64.
+max-queue-size: 10
+```
+
+--------------------------------
+
+### Define Single Smoker Crafting Recipe
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This configuration defines a single custom crafting recipe for a 'smoker' type. It specifies the base item, the required material, and the crafting process itself. This is used for basic recipe assignments.
+
+```yaml
+smoker:
+  #This is what defines your crafting type.
+  base:
+    name: Smoker
+    material: WATER_BUCKET
+  crafting:
+    smoker: #This is what defines your crafting type.
+```
+
+--------------------------------
+
+### In-Game Damage Indicators Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Enables and configures in-game damage and heal indicators. Requires HolographicDisplays/Holograms plugin to function. A server reload is necessary when enabling or disabling this feature.
+
+```yaml
+game-indicators:
+    damage:
+        enabled: true
+        decimal-format: '0.#'
+        format: '&c-#'
+    heal:
+        enabled: true
+        decimal-format: '0.#'
+        format: '&a+#'
+```
+
+--------------------------------
+
+### MMOItems Item Updater Commands
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item%20Updater
+
+Provides documentation for commands used to update items within the MMOItems plugin. These commands allow for direct manipulation and updating of items in player inventories, either for the currently held item or for specific item types and IDs.
+
+```APIDOC
+MMOItems Item Updater:
+
+This section details commands for updating items in player inventories. Note that much of this functionality may be superseded by the Revision ID System and this page is considered outdated.
+
+1. Update Currently Held Item:
+   Command: /updateitem
+   Description: Directly updates the item the player is currently holding in their main hand.
+   Usage: Execute the command while holding the item to be updated.
+
+2. Update Specific Item Type and ID:
+   Command: /updateitem <type> <id>
+   Description: Enables the item updater for a specific item type and ID. Physical instances of this item will be marked as 'outdated' and updated upon the next interaction or login.
+   Parameters:
+     - type: The type of the item (e.g., 'sword', 'armor').
+     - id: The unique identifier for the item.
+   Usage: /updateitem <type> <id>
+
+Item Update Behavior:
+- When the item updater is enabled for an item, all existing physical instances are updated once.
+- Applying further changes in the item edition GUI will re-mark physical instances as 'outdated'.
+- MMOItems automatically checks and updates items when players log in or click items in non-creative inventories.
+```
+
+--------------------------------
+
+### MMOItems Durability Placeholders
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Durability
+
+Provides placeholders to display the current durability, maximum durability, durability ratio, and various visual representations of the durability bar for items managed by the MMOItems plugin. These placeholders can be used with systems like PlaceholderAPI.
+
+```APIDOC
+Durability Placeholders:
+
+%mmoitems_durability%
+  - Returns the current amount of uses left on the item the player is holding.
+
+%mmoitems_durability_max%
+  - Returns the maximum durability (total uses) of the item.
+
+%mmoitems_durability_ratio%
+  - Returns the item's durability as a percentage (from 0% to 100%).
+
+%mmoitems_durability_bar_square%
+  - Returns the item durability displayed as a square progress bar.
+
+%mmoitems_durability_bar_diamond%
+  - Returns the item durability displayed using a diamond character for the progress bar.
+
+%mmoitems_durability_bar_thin%
+  - Returns the item durability displayed as a much thinner progress bar.
+```
+
+--------------------------------
+
+### Two-Handed Steel Sword Crafting Recipe
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+Defines the configuration for crafting a 'Two-Handed Steel Sword'. It includes the item's type, ID, amount, crafting time, required conditions (like player level), and ingredients.
+
+```yaml
+name: '&a'
+no-queue-item: 
+material: GRAY_STAINED_GLASS_PANE
+name: '&aNo Item in Queue'
+recipes:
+  two-handed-steel-sword:
+    output:
+      type: GREATSWORD
+      id: TWO_HANDED_STEEL_SWORD
+      amount: 1
+    crafting-time: 10
+    conditions:
+      - 'level{level=8}'
+    ingredients:
+      - 'mmoitem{type=MATERIAL,id=STEEL_INGOT,amount=8}'
+      - 'vanilla{type=STICK,amount=4}'
+```
+
+--------------------------------
+
+### User Interface and Input Methods
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Configures alternative input methods, such as using an anvil GUI for text input to avoid conflicts with chat management plugins. It also sets the character used for cooldown progress bars.
+
+```yaml
+anvil-text-input: false
+cooldown-progress-bar-char: █
+```
+
+--------------------------------
+
+### Configure Auto-Soulbinding
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Soulbound/diff
+
+Enables an item to automatically soulbind to the first player who acquires it. This setting is managed within the item editor and can be further configured in the main configuration file.
+
+```APIDOC
+Feature: Auto-Soulbinding
+
+Description: Automatically binds an item to the first player who obtains it.
+
+Configuration:
+- Item Editor: Enable the 'Auto-Soulbinding' option for a specific item.
+- config.yml: Further customization options for auto-soulbinding behavior may be available.
+
+Behavior:
+- When enabled, the item is soulbound to the player upon pickup or acquisition.
+
+Dependencies:
+- MMOItems plugin configuration.
+
+Related:
+- Item Editor
+- config.yml
+```
+
+--------------------------------
+
+### Define Multiple Smoker Crafting Recipes
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This configuration demonstrates how to assign multiple distinct recipes to a single crafting type, specifically the 'smoker'. It uses a 'MULTIPLERECIPES' key to group different recipe definitions, each with its own base item and material.
+
+```yaml
+SMOKERMULTIPLERECIPES:
+  base:
+    name: Smoker
+    material: WATER_BUCKET
+  crafting:
+    smoker: #This is what defines your crafting type.
+```
+
+--------------------------------
+
+### Define a Shaped Crafting Recipe
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This configuration block defines a shaped crafting recipe. It includes the recipe's base properties like name and material, and specifies the crafting grid layout. The 'input' array details the items required for each slot, including item IDs, quantities, and optional NBT data.
+
+```yaml
+SHAPEDRECIPE:
+  base:
+    name: Shaped
+    material: WATER_BUCKET
+  crafting:
+    shaped:
+      '1':
+        input:
+          - v stone - 1.0..|v AIR 0 1..|v AIR 0 1..
+```
+
+--------------------------------
+
+### Class Restriction Condition
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Conditions/diff
+
+Restricts the usage of a recipe to players belonging to specific classes. Multiple class names can be provided.
+
+```configuration
+class{list=<Class Name>,<Class Name 2>...}
+```
+
+--------------------------------
+
+### Register Custom MMOItems Ability
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main-API-Features/diff
+
+Registers a custom ability class with the MMOItems API. This is done by creating an instance of MMOItemsAPI and calling the registerAbility method with your custom ability object.
+
+```Java
+new MMOItemsAPI(yourPluginInstanceHere).registerAbility(yourAbilityInstance);
+```
+
+--------------------------------
+
+### MMOItems Custom Block Configuration Template
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom%20Blocks
+
+This YAML snippet demonstrates the structure for defining a custom block in MMOItems. It includes essential properties such as name, lore, required pickaxe power, experience generation, material, and block ID. This configuration is used to customize game mechanics related to specific blocks.
+
+```yaml
+'1':
+  base:
+    name: "&aMy First Custom Block"
+    lore:
+    - "&7Wow... It's possible!"
+    - "&7That's awesome!"
+    required-power: 3
+    min-xp: 10
+    max-xp: 20
+    gen-template: basic-template
+    material: STONE
+    block-id: 1.0
+
+```
+
+--------------------------------
+
+### Define Steel Sword Recipe Output
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Crafting-Stations/diff
+
+This snippet demonstrates how to configure the output of a crafting recipe for a steel sword. It specifies the item material type (SWORD) and the specific item ID (STEEL_SWORD), along with the quantity produced.
+
+```yaml
+recipes:
+  steel-sword:
+    output:
+      material: SWORD
+      sword: STEEL_SWORD
+      amount: 1
+```
+
+--------------------------------
+
+### MMOItems Recipe Configuration Fields
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Explains key configuration fields used in MMOItems custom recipes. These fields control how enchantments from ingredients are handled, which ingredients are returned after crafting, and the quantity of items produced.
+
+```config
+enchantments: dictates what happens to any enchantment on the ingredients when you craft the item. It has the same options as upgrades and they do the exact same thing.
+
+output: dictates what ingredients will not be consumed upon crafting the item (Like a bucket of milk becoming an empty bucket in a cake recipe). It's defined the same way as input. The items here do not have the be the same as in input however and can be something entirely different.
+
+amount: defines how many items this recipe will create.
+```
+
+--------------------------------
+
+### MMOItems Recipe Config: Item Ingredient
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Specifies what the ingredient will be. Use 'MMOITEM_TYPE MMOITEM_ID AMOUNT' for a custom MMOItem or 'VANILLA_ID AMOUNT' for a vanilla item.
+
+```config
+item: MY_MMOITEM_TYPE MY_MMOITEM_ID 1
+```
+
+```config
+item: minecraft:diamond 5
+```
+
+--------------------------------
+
+### MMOItems Recipe Conditions
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe%20Conditions
+
+Details the various types of conditions that can be applied to crafting recipes in MMOItems. Each condition has specific parameters to define the requirement, and some allow for custom display text in the item lore.
+
+```APIDOC
+MMOItems Recipe Conditions:
+
+General:
+  Conditions are stored in a list within the recipe config section. Unlike ingredients, conditions do not take anything from the player inventory when using a crafting recipe.
+
+Condition Types:
+
+- level
+  Usage: `level{level=<min>,consume=<true/false>}`
+  Description: Players must be Lvl X or higher. `consume` is whether or not the levels should be consumed.
+
+- class
+  Usage: `class{list=<Class Name>,<Class Name 2>...}`
+  Description: Restricts a recipe to certain classes.
+
+- permission
+  Usage: `permission{list="<perm1>,<perm2>";display="...";hide=false}`
+  Description: Only players with specific permissions may use the recipe. `display` is how the condition looks like in the item lore. `hide` controls visibility when locked.
+
+- placeholder
+  Usage: `placeholder{placeholder="<Placeholder>~<Comparator>~<Number>";display="...";hide=false}`
+  Description: Check the placeholder of a Player, then compare it to a number of your choice. Comparator list: `<`, `<=`, `>`, `>=`, `==`, `!=`. Use `eq` or `neq` when comparing strings. `display` customizes lore appearance, `hide` controls visibility when locked.
+
+- food
+  Usage: `food{amount=<amount>}`
+  Description: The recipes consumes (and requires) X food.
+
+- mana
+  Usage: `mana{amount=<amount>,format="0.#"}`
+  Description: The recipe consumes (and requires) X mana.
+
+- stamina
+  Usage: `stamina{amount=<amount>,format="0.#"}`
+  Description: The recipe consumes (and requires) X stamina.
+
+- money
+  Usage: `money{amount=<amount>,format="0.#"}`
+  Description: The recipe costs (and requires) X Vault currency.
+
+- profession
+  Usage: `profession{profession=<profession>,level=<min>}`
+  Description: Players must be Lvl X in a profession or higher (MMOCore).
+
+Recipe Options:
+
+- hide-when-locked: This option triggers when at least one of the conditions is/are not met. The recipe will still display in the GUI if the player does not have all the required ingredients. Recipe conditions display at the beginning of the GUI recipe item lore.
+```
+
+--------------------------------
+
+### Configure Piercing Effect
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Enables and configures the piercing effect for items. This includes enabling the effect and setting its associated cooldown.
+
+```yaml
+piercing:
+  enabled: true
+  cooldown: 4
+```
+
+--------------------------------
+
+### Permissions Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Manages permission requirements for using items and abilities within the MMOItems plugin. Specific permission nodes are required for abilities (e.g., mmoitems.ability.ability-id) and items.
+
+```yaml
+permissions:
+    abilities: false
+    items: true
+```
+
+--------------------------------
+
+### Configure Lootsplosion Feature
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Lootsplosion/diff
+
+This configuration block enables the Lootsplosion feature within the MMOItems plugin. It allows for customization of the feature's behavior, such as enabling visual effects and specific coloring options. This setting is crucial for activating the 'lootsplosion' mechanic for MythicMobs monsters.
+
+```YAML
+# Offset is the distance traveled on X and Y coordinates
+# Height is the Y velocity coordinate. Lootsplosions
+# only trigger with MythicMobs monsters.
+lootsplosion:
+  enabled: true
+  mmoitems-color: true
+```
+
+--------------------------------
+
+### Configure Stun Effect
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Enables and configures the stun effect for items. It includes whether the effect is enabled, the chance of it triggering, and its specific cooldown period.
+
+```yaml
+stun:
+  enabled: true
+  chance: 5
+  cooldown: 30
+```
+
+--------------------------------
+
+### MMOItems Default Station Layout Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts
+
+Defines the structure and slot assignments for the default GUI layout of a crafting station. This includes the total number of slots and specific positions for recipes, queue slots, and navigation arrows.
+
+```yaml
+# The size of the gui. Must be
+# between 9 and 54 and must be a multiple of 9.
+slots: 54
+layout:
+  # The slots that display the station's recipes.
+  recipe-slots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 21, 22, 23]
+  # The slots that display the station's queue slots.
+  queue-slots: [38, 39, 40, 41, 42]
+  # The slots that display the arrows to navigate
+  # the station's recipes.
+  # Only shows when it can be used.
+  recipe-previous-slot: 20
+  recipe-next-slot: 24
+  # The slots that display the arrows to navigate
+  # the station's queue.
+  # Only shows when it can be used.
+  queue-previous-slot: 37
+  queue-next-slot: 43
+```
+
+--------------------------------
+
+### Add MMOItems to MythicMobs Drop Tables
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Drop-Tables/diff
+
+This snippet demonstrates how to define an MMOItem within a MythicMobs drop table configuration. It specifies the item type, ID, and drop chance. An optional 'unidentified' parameter can also be included to control item identification upon dropping.
+
+```yaml
+TestDropTable:
+  Conditions:
+  - mmoitems{type=SWORD;id=CUTLASS} 1 .1
+
+# Example with unidentified option:
+# mmoitems{type=SWORD;id=CUTLASS;unidentified=30} 1 .1
+```
+
+--------------------------------
+
+### Equip Priority Feature Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Stats-and-Options/diff
+
+Details the 'Equip Priority' feature for armor pieces in mmoitems. This allows for hot-swapping armor based on priority. Configuration can be toggled in `Config.yml`.
+
+```yaml
+equip-priority: 4.0
+```
+
+```yaml
+auto-equip-feature: false
+```
+
+--------------------------------
+
+### Configure Locked Skins
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Determines if item skins can only be applied once per item. When set to true, a skin can be applied to an item only one time.
+
+```yaml
+# When this is set to true, skins can only be applied to an item ONCE.  
+locked-skins: true
+```
+
+--------------------------------
+
+### MMOItems Reload Stations Command
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Station-Layouts
+
+Reloads all station layouts and configurations within the MMOItems plugin. This command is essential after making changes to station layout files to apply them in-game.
+
+```Shell
+/mi reload stations
+```
+
+--------------------------------
+
+### MMOItems Ability Modifier Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Complex-Stats/diff
+
+Defines the structure for configuring ability modifiers within MMOItems. This includes setting base values, scaling factors, and maximum spread for properties like cooldown and duration. The format mirrors that of adding abilities to standard items, with specific handling for scalable values.
+
+```APIDOC
+Ability Modifier Structure:
+
+  base: <value>
+    - The base value for the ability modifier.
+
+  scale: <value>
+    - The scaling factor applied to the modifier based on item level.
+
+  max-spread: <value>
+    - The maximum relative offset for the modifier's value.
+
+  Example:
+    on-hit burn ability:
+      cooldown: 6s, +/-10% average, max relative offset 10%
+      duration: 6s, increased by 0.2s per item level
+
+  Non-scaling modifier example:
+    damage: 5 (no scaling specified)
+    cooldown: scales as specified
+
+  Note: To prevent scaling, set 'scale' to 0 or omit 'scale' and 'max-spread'.
+```
+
+--------------------------------
+
+### MMOItems Numeric Stat Scaling
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Templates/diff
+
+Explains how numeric item statistics (like armor, attack damage) scale with the item's level. It highlights that a slight random offset is applied to each stat independently to ensure variety in stat values for items of the same level.
+
+```text
+Number based item statistics like armor/atk damage/... all scale according to the item level. However, so that items with the same level do not have the **exact same stat values**, a slight random offset is applied to each stat independently of the other stat offsets.
+```
+
+--------------------------------
+
+### MMOItems Default Lore Format Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Lore-Formats/diff
+
+This YAML configuration defines the default structure for displaying item lore in MMOItems. It outlines placeholders for item type, required stats, and other attributes. Users can customize this by creating new files in the lore-formats directory.
+
+```yaml
+lore-format:
+  # - '{bar}&8&m--------&f&l &nGeneral&8 &m--------------'
+  - '#item-type#'
+  - '{bar}'
+  - '#required-class#'
+  - '#required-level#'
+  - '#required-dexterity#'
+```
+
+--------------------------------
+
+### Disable Vanilla Recipes Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Prevents players from crafting non-MMOItems in the vanilla workbench. An empty list `[]` means no specific items are blacklisted.
+
+```yaml
+disable-vanilla-recipes: []
+```
+
+--------------------------------
+
+### Configure Monster and Block Drop Tables
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Drop-Tables/diff
+
+This section outlines the configuration for item drop tables. It specifies how to define drops for entities (monsters) and blocks. Each entry can have subtables that determine the drop chance and the minimum/maximum number of items dropped.
+
+```config
+MOB_NAME:
+  first-subtable:
+    drop-chance: 0.5
+    min: 1
+    max: 3
+
+# For blocks, replace MOB_NAME with the Material type (e.g., DIAMOND_ORE):
+# DIAMOND_ORE:
+#   first-subtable:
+#     drop-chance: 0.1
+#     min: 1
+#     max: 1
+```
+
+--------------------------------
+
+### Item Revision System Configuration Options
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+This section details the configurable parameters for the item revision system. These settings control aspects like data retention, display name formatting, enchantment tracking, and more. Options are typically set within the 'item-revision' section of the project's configuration file.
+
+```config
+item-revision:
+  keep-data:
+  display-name: true
+  enchantments: true
+  soulbound: true
+  gems: true
+  upgrades: true
+  lore: false
+  kept-lore-prefix: "&7"
+  external-sh: true
+  reroll: false
+  modifications: true
+  skins: true
+  tier: true
+```
+
+--------------------------------
+
+### EPIC Item Tier Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Tiers/diff
+
+Configuration block for the 'EPIC' item tier. It defines the display name, the level range for unidentified items, and a color prefix.
+
+```yaml
+EPIC:
+  name: '&4&lEPIC'
+  range: 6
+  prefix: '&4'
+```
+
+--------------------------------
+
+### MMOItems: Check Item Origin and Type
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+Learn how to determine if an ItemStack originates from the MMOItems plugin and retrieve its specific type. This involves obtaining an NBTItem from the ItemStack and checking for the presence of an MMOItems type tag.
+
+```Java
+NBTItem nbtItem = NBTItem.get(itemStack);
+
+// Check if the NBTItem has an MMOItems type tag
+boolean isMMOItem = nbtItem.hasType();
+
+// Get the item type (e.g., "SWORD", "AXE")
+String itemType = nbtItem.getType();
+```
+
+--------------------------------
+
+### Level Requirement Condition
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Conditions/diff
+
+Players must meet a minimum level requirement to use a recipe. The `consume` parameter determines if levels are consumed upon use.
+
+```configuration
+level{level=<min>,consume=<true/false>}
+```
+
+--------------------------------
+
+### Gemstone Handling and Drop Extra Gems Option
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+Explains the handling of gemstones during item revision updates and the role of the `drop-extra-gems` option. This option ensures that gemstones that would otherwise be lost due to revision updates are returned to the player.
+
+```APIDOC
+Feature: Keep Gemstones
+
+Configuration Option: `drop-extra-gems`
+
+Description:
+  This global option affects how gemstones are handled during item revision updates. When an item's revision ID is updated, existing gemstones are checked against the new template.
+
+Functionality:
+  - If gemstones would be deleted or become incompatible due to the revision update, and `drop-extra-gems` is set to `true`, these gemstones are returned to the player.
+  - If the player's inventory is full, the gemstones will be dropped nearby.
+
+Scope:
+  This option is global and applies to all item revision operations within the system.
+
+Purpose:
+  To provide a fallback mechanism for players to recover gemstones that might be invalidated by item template updates, preventing loss of valuable item components.
+```
+
+--------------------------------
+
+### Rare Item Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Tiers/diff
+
+Configuration snippet for defining rare item properties, specifically its display name using color codes.
+
+```yaml
+RARE:
+  name: '&6&lRARE'
+```
+
+--------------------------------
+
+### Configure Power Attribute
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Sets the base power value for an item. This attribute typically influences the effectiveness or damage output of the item.
+
+```yaml
+power: 1
+```
+
+--------------------------------
+
+### Register Custom Enchant Plugin
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Enchant-Plugins
+
+Call this method to register your custom enchant plugin with MMOItems. This registration must occur before the MMOItems plugin fully enables to ensure compatibility.
+
+```java
+MMOItems.plugin.registerEnchantPlugin(...);
+```
+
+--------------------------------
+
+### Define Long Sword Item Template
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Templates/diff
+
+This YAML snippet defines a basic item template for a 'Long Sword'. It specifies the item's type, material, display name, attack speed, and base attack damage, serving as a foundation for generating in-game items with specific attributes.
+
+```yaml
+LONG_SWORD:
+  # Basic template information
+  type: SWORD
+
+  # Base item data
+  base:
+    material: IRON_SWORD
+    name: '&fLong Sword'
+    attack-speed: 1.6
+    attack-damage:
+      base: 6
+```
+
+--------------------------------
+
+### Enable Item Upgrade Requirements Check
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+When set to true, players cannot upgrade an item if the specs (level, profession requirements) the item WOULD have if it were upgraded are too high for the player. This ensures players meet requirements before upgrading.
+
+```yaml
+item-upgrade-requirements-check: true
+```
+
+--------------------------------
+
+### MMOItems Display and Soulbound Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+This snippet details configuration settings for the MMOItems plugin. It covers the 'display-stat-changes' option, which controls whether stat modifications are shown in item lore, and the 'soulbound' settings, specifically 'damage' with 'base' and 'per-lvl' values, which likely define how much damage soulbound items inflict or absorb.
+
+```yaml
+# stats are changed in the lore.
+# EXPERIMENTAL FEATURE
+display-stat-changes: false
+soulbound:
+  # Edit soulbound damage when players try to use
+  # items which are not bound to themselves.
+  damage:
+    base: 1
+    per-lvl: 1
+```
+
+--------------------------------
+
+### Default Item Stats
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Sets the default values for core item statistics such as attack speed, range, blunt rating, and recoil. These defaults can be overridden by specific item configurations.
+
+```yaml
+default:
+    attack-speed: 0.67
+    range: 16
+    blunt-rating: 33
+    recoil: 0.1
+```
+
+--------------------------------
+
+### Configure Anvil Text Input
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Controls whether players can use text input in the anvil. When set to false, players cannot use text input.
+
+```yaml
+anvil-text-input: false
+```
+
+--------------------------------
+
+### EnchantPlugin Interface
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Enchant-Plugins
+
+The core interface for custom enchant plugins. It defines methods to identify custom enchants, handle their application to items, and retrieve namespaced keys. This interface supports enchantments managed via Bukkit's Enchantment interface, NBT data, or lore.
+
+```java
+/**
+ * There are three types of enchant plugins.
+ * - enchants saved using the Bukkit Enchantment interface (EcoEnchants, MythicEnchants)
+ * - enchants saved in the NBT (AdvancedEnchants)
+ * - enchants saved in lore only (CrazyEnchants)
+ * <p>
+ * Interface used to support plugins which use the Bukkit Enchantment
+ * interface to register their enchantments. This makes enchant storage
+ * so much easier for MMOItems.
+ *
+ * @param <T> The plugin class implementing Enchantment
+ */
+public interface EnchantPlugin<T extends Enchantment> {
+    /**
+     * @param enchant Enchant being checked
+     * @return If this enchant plugin handles a given enchant
+     */
+    boolean isCustomEnchant(Enchantment enchant);
+    /**
+     * Called when an item is built. This should be used to add the enchantment
+     * lines to the item lore or add any item tag required by the enchantment.
+     *
+     * @param builder Item being built
+     * @param enchant Enchantment being applied
+     * @param level   Enchant level
+     */
+    void handleEnchant(ItemStackBuilder builder, T enchant, int level);
+    NamespacedKey getNamespacedKey(String key);
+}
+```
+
+--------------------------------
+
+### Weapon Effects Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Enables and customizes weapon effects based on item type and set. Includes settings for cooldowns and power levels for different weapon types like Staff, Gauntlet, Blunt, Slashing, and Piercing.
+
+```yaml
+item-ability:
+    staff:
+        enabled: true
+        cooldown: 30
+        power: 1
+    gauntlet:
+        enabled: true
+        cooldown: 60
+        power: 1
+    blunt:
+        aoe:
+            enabled: true
+            cooldown: 2
+        stun:
+            enabled: true
+            chance: 5
+            cooldown: 30
+            power: 1
+    slashing:
+        enabled: true
+        cooldown: 2
+    piercing:
+        enabled: true
+        cooldown: 4
+```
+
+--------------------------------
+
+### Configure Slashing Effect
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Enables and configures the slashing effect for items. This includes enabling the effect and setting its associated cooldown.
+
+```yaml
+slashing:
+  enabled: true
+  cooldown: 2
+```
+
+--------------------------------
+
+### Lootsplosion Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Enables and configures the 'Lootsplosion' effect, which creates a visual explosion of items. This feature only triggers with MythicMobs monsters and requires a server reload when changed. Settings include enabling color, offset distance, and height velocity.
+
+```yaml
+lootsplosion:
+    enabled: true
+    color: true
+    offset: .2
+    height: .6
+```
+
+--------------------------------
+
+### Enable Item Updater for All Items
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item%20Updater
+
+This command applies the item updater to all items in the MMOItems configuration. It is strongly discouraged due to potential performance impacts, as the updater is designed for hot-nerfing individual items, not mass updates. Enabling it for all items can lead to unnecessary performance overhead.
+
+```CLI
+/mi update apply 2 2
+```
+
+--------------------------------
+
+### Stamina Consumption Condition
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Conditions/diff
+
+Defines a requirement where the recipe consumes a specified amount of stamina from the player upon activation.
+
+```configuration
+stamina{amount=<amount>}
+```
+
+--------------------------------
+
+### MMOItems Recipe Reload Command
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Reloads all custom recipes defined in the MMOItems plugin. This command must be executed after making changes to recipe configurations to apply them. It ensures that any new or modified recipes are recognized by the plugin.
+
+```APIDOC
+Command: /mi reload recipes
+
+Description: Reloads all custom recipes for MMOItems.
+
+Usage:
+Execute the command in-game or via console.
+
+Notes:
+- This command is essential after modifying recipe files.
+- It applies changes to all registered crafting types (e.g., crafting tables, furnaces, campfires).
+```
+
+--------------------------------
+
+### Configure Uncolored Gem Sockets
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Gem-Stones/diff
+
+This YAML configuration defines the mapping for uncolored gem sockets. It specifies the text identifier used in item configurations to denote a socket that can accept any type of gem stone.
+
+```yaml
+gem-sockets:
+  # Define the text you need to enter in the
+  # item gem sockets if you want to create an
+  # uncolored gem socket i.e a socket for any type of gem.
+  uncolored: 'Uncolored'
+```
+
+--------------------------------
+
+### MMOItems Resource Cost Stats
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Configuration parameters for stats that affect the resource costs of abilities or actions, such as mana or stamina.
+
+```APIDOC
+MMOItems Configuration - Resource Cost Stats:
+
+- mana-cost: number
+  - Description: Reduces the mana cost of abilities.
+  - Example: 5.0 (represents 5% reduction)
+
+- stamina-cost: number
+  - Description: Reduces the stamina cost of actions.
+  - Example: 5.0 (represents 5% reduction)
+```
+
+--------------------------------
+
+### Item Glow Feature
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Controls the enablement of the item glow effect. It also includes a warning about potential performance impacts if many items are dropped, suggesting disabling it in such scenarios.
+
+```yaml
+item-glow: true
+```
+
+--------------------------------
+
+### MMOItems Recipe Properties
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Defines special properties that can be applied to custom recipes to modify crafting behavior, such as gem recovery and upgrade retention.
+
+```APIDOC
+Recipe Properties:
+
+- `drop-gems: <true|false>`
+  - Description: Determines if gems slotted into MMOItems used as ingredients are dropped and recoverable upon crafting.
+  - Example: `drop-gems: true`
+
+- `upgrades: <ADDITIVE|MAXIMUM|EVEN|MINIMUM|NONE>`
+  - Description: Dictates how upgrade levels from ingredient MMOItems are handled in the crafted item.
+    - `ADDITIVE`: Sums upgrade levels (e.g., +1 + +3 = +4).
+    - `MAXIMUM`: Takes the highest upgrade level (e.g., +1 + +3 = +3).
+    - `EVEN`: Averages upgrade levels (e.g., +1 + +3 = +2).
+    - `MINIMUM`: Takes the lowest upgrade level (e.g., +1 + +3 = +1).
+    - `NONE`: Discards all upgrade levels.
+  - Example: `upgrades: ADDITIVE`
+```
+
+--------------------------------
+
+### MMOItems Arrow Volley Skill Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/MythicMob-Mechanics/MMOItems-Arrow-Volley/diff
+
+This snippet illustrates the configuration for the MMOItems Arrow Volley skill, a mechanic used within MythicMobs. It highlights a specific correction made to the skill's parameters, changing 'ia' to 'ai' for arrow identification. The skill allows players to fire multiple arrows from their side, with damage scaling based on the player's bow stats.
+
+```MythicMobs
+- MMOItemsVolley{a=4;s=30;rD=100;v=20;syo=5.2;sfo=5;statsScale=0.2;ia="m AMMO BLACK_ARROW";fe=true} @TargetLocation
+- delay 2
+```
+
+```MythicMobs
+- MMOItemsVolley{a=4;s=30;rD=100;v=20;syo=5.2;sfo=5;statsScale=0.2;ai="m AMMO BLACK_ARROW";fe=true} @TargetLocation
+- delay 2
+```
+
+--------------------------------
+
+### Item Upgrading Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Defines how upgraded items are displayed, including name suffixes, lore formatting for stat changes, and whether to show which stats were modified. It also allows disabling display in item names if player renaming is available.
+
+```yaml
+item-upgrading:
+    name-suffix: '&f &e(+#lvl#)'
+    display-in-name: true
+    stat-change-suffix: ' &8(&p#stat#&8)'
+    stat-change-positive: '&a'
+    stat-change-negative: '&c'
+    display-stat-changes: false
+```
+
+--------------------------------
+
+### MMOItems: Check Specific Item ID
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Main%20API%20Features
+
+This section explains how to verify if an ItemStack is a particular MMOItem by checking its type and its unique identifier. It builds upon the previous step by retrieving the MMOITEMS_ITEM_ID tag.
+
+```Java
+NBTItem nbtItem = NBTItem.get(itemStack);
+
+// Check if it's an MMOItem and get its type and ID
+if (nbtItem.hasType()) {
+    String itemType = nbtItem.getType();
+    String itemId = nbtItem.getString("MMOITEMS_ITEM_ID");
+
+    // Example: Check if it's a "SWORD" with ID "MY_CUSTOM_SWORD"
+    if (itemType.equals("SWORD") && itemId.equals("MY_CUSTOM_SWORD")) {
+        // This is the specific item you are looking for
+    }
+}
+```
+
+--------------------------------
+
+### Mana Consumption Condition
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Conditions/diff
+
+Requires and consumes a specified amount of mana from the player when the recipe is used.
+
+```configuration
+mana{amount=<amount>}
+```
+
+--------------------------------
+
+### Item Updater Commands
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Updater/diff
+
+Commands related to updating items within the game. Note that this system is largely superseded by the Revision ID System, and the information presented here may be outdated.
+
+```APIDOC
+/updateitem
+- Updates the item currently being held by the player.
+```
+
+```APIDOC
+/updateitem <type> <id>
+- Enables the item updater for a specific item, identified by its type and ID.
+```
+
+--------------------------------
+
+### Soulbound Item Settings
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Configures the damage dealt when players attempt to use items not bound to them, whether soulbound items are kept on death, and if they can be dropped. It also manages automatic soulbinding levels and disabling specific events for auto-binding.
+
+```yaml
+soulbound:
+    damage:
+        base: 1
+        per-lvl: 1
+    keep-on-death: true
+    can-drop: true
+    auto-bind:
+        level: 1
+        disable-on:
+            pickup: false
+            craft: false
+            click: false
+            join: true
+```
+
+--------------------------------
+
+### Define LONG_SWORD Item Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Modifiers/diff
+
+This snippet illustrates the configuration for a 'LONG_SWORD' item. It specifies the item's type as 'SWORD', its base properties, and a 'sharp' modifier with its weight and prefix. This structure is used for defining custom items and their attributes within the MMOItems plugin.
+
+```config
+LONG_SWORD:
+  type: SWORD
+  base: ...
+  # Modifiers which have a chance to be rolled
+  modifiers:
+    # First modifier
+    sharp:
+      weight: 2.5
+      prefix: '&fSharp'
+      stats:
+
+```
+
+--------------------------------
+
+### Block Blacklist Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Defines a list of block types that cannot be broken by ability or item effects. This prevents specific blocks from being destroyed through plugin mechanics.
+
+```yaml
+block-blacklist:
+    - OBSIDIAN
+```
+
+--------------------------------
+
+### Custom Blocks World Generation
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Controls whether custom blocks generate naturally in the world based on their templates. It also includes an option to replace mushroom block drops when mining with silk-touch, recommended for compatibility.
+
+```yaml
+custom-blocks:
+    enable-world-gen: false
+    replace-mushroom-drops: true
+```
+
+--------------------------------
+
+### Configure Inventory Iteration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Controls whether the plugin iterates through the entire player inventory. Setting this to true can potentially cause lag or high memory usage, especially with large inventories. It's often related to features like Ornament item types.
+
+```yaml
+# This option is required for the Ornament item type, however  
+# it CAN cause lag and/or take a lot of memory.  
+iterate-whole-inventory: false
+```
+
+--------------------------------
+
+### MMOItems Elemental Stats Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Configures elemental properties for an item, such as damage dealt by fire or defense provided by earth.
+
+```config
+element:
+  fire:
+    damage: 10.0
+  earth:
+    defense: 10.0
+```
+
+--------------------------------
+
+### Define Shaped Crafting Recipe
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+This configuration block defines a shaped crafting recipe. It includes base properties such as the recipe's name and the primary material, along with the crafting grid layout. This format is used to specify how items are combined in a crafting table.
+
+```Custom Config
+SHAPEDRECIPE:
+  base:
+    name: Shaped
+    material: WATER_BUCKET
+  crafting:
+```
+
+--------------------------------
+
+### Item Upgrade Requirements Check
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Determines if players are prevented from upgrading items if the resulting stats (level, profession requirements) exceed their capabilities. This ensures players only upgrade items they can use.
+
+```yaml
+item-upgrade-requirements-check: true
+```
+
+--------------------------------
+
+### Action Bar Display Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Configures messages displayed on the action bar, such as ability cooldowns, item cooldowns, and player status messages. Can reduce chat spam but might interfere with other action bar plugins.
+
+```yaml
+action-bar-display:
+    ability-cooldown: true
+    item-cooldown: true
+    not-enough-mana: true
+    not-enough-stamina: true
+    two-handed: true
+    cant-use-item: true
+    mitigation: true
+    item-break: false
+```
+
+--------------------------------
+
+### Arrow Rain Description
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/MythicMob-Mechanics/MMOItems-Arrow-Volley/diff
+
+A description of the arrow rain effect, specifying that it uses Black Arrow MMOItems, scaled to 20% of normal damage. It also notes a dependency on other plugins like XBow2RL for the arrow item to be effective.
+
+```text
+A dreadful arrow rain of Black Arrow MMOItems that are each scaled to do only 20% of the damage they would do normally. _Requies other plugins like XBow2RL for the arrow item to matter._
+```
+
+--------------------------------
+
+### Configure Inventory Update Delay
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Sets the delay between inventory updates in ticks. A value of 10 ticks corresponds to 2 inventory updates per second, controlling the frequency of inventory refreshes.
+
+```yaml
+inventory-update-delay: 10
+```
+
+--------------------------------
+
+### Configure Auto Equip Feature
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Enables or disables the automatic armor equipping feature. When active, players can right-click armor to auto-equip it if its 'Equip Priority' stat is higher than their currently worn armor, facilitating quick armor swaps.
+
+```YAML
+auto-equip-feature: true
+```
+
+--------------------------------
+
+### MMOItems Recipe Config: Hidden Property
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Recipes/diff
+
+Dictates if the item should be hidden from the player's recipe book even if they've unlocked it. Accepts boolean values (true or false).
+
+```config
+hidden: true
+```
+
+--------------------------------
+
+### Inventory Update Delay
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Sets the delay, in ticks, between player inventory updates. A lower value means more frequent updates, with 10 ticks corresponding to 2 updates per second.
+
+```yaml
+inventory-update-delay: 10
+```
+
+--------------------------------
+
+### On MMOItem Use Aura Mechanic
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/MythicMob-Mechanics/On-MMOItem-Use-Aura/diff
+
+This snippet defines a MythicMobs mechanic that triggers an effect when an MMOItem is used. The `onMMOItemUse` trigger is configured to apply a 'GreenExplosion' effect with a duration of 300 ticks, specifically when used with STAFF or WHIP item types, targeting the caster (`@Self`).
+
+```MythicMobs
+- onMMOItemUse{d=300;s=GreenExplosion;w=STAFF,WHIP} @Self
+```
+
+--------------------------------
+
+### Configure Block Blacklist in MMOItems
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Defines blocks that cannot be broken by item or ability effects. This prevents specific blocks from being affected by in-game mechanics, such as Obsidian.
+
+```YAML
+block-blacklist:
+  - OBSIDIAN
+```
+
+--------------------------------
+
+### Food Consumption Condition
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Recipe-Conditions/diff
+
+Specifies that a recipe consumes a certain amount of food points from the player upon use. This also acts as a requirement.
+
+```configuration
+food{amount=<amount>}
+```
+
+--------------------------------
+
+### Configure Cooldown Progress Bar Character
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Sets the character used to display the cooldown progress bar for item abilities. This allows customization of the visual representation of ability cooldowns.
+
+```yaml
+# You can select what char will be used to create  
+# the item ability cooldown progress bar.  
+cooldown-progress-bar-char: █
+```
+
+--------------------------------
+
+### Automatic Item Equip Feature
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Enables or disables the automatic equipping of armor pieces. When active, right-clicking armor checks 'Equip Priority' against the currently equipped item to facilitate hot-swapping.
+
+```yaml
+auto-equip-feature: true
+```
+
+--------------------------------
+
+### Enable Lootsplosion for MythicMobs
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Lootsplosion/diff
+
+To enable the Lootsplosion feature for a specific MythicMob, you need to assign it a 'Lootsplosion' variable. This is typically done using a MythicMobs skill that applies the variable when the mob spawns. The value of the variable can be any identifier, such as '1'.
+
+```MythicMobs
+# Example MythicMobs skill to enable Lootsplosion on spawn
+# This skill adds a variable named 'Lootsplosion' to the mob itself.
+
+YourMob:
+  Type: zombie
+  # ... other mob properties ...
+  Skills:
+    - setvariable{var=Lootsplosion;scope=target;value=1} @self ~onSpawn
+```
+
+--------------------------------
+
+### Configure Item Level Generation Spread
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Defines the acceptable range for generated item levels relative to the player's level. The item level will be within the interval [playerLevel - spread, playerLevel + spread], ensuring items are appropriately scaled.
+
+```yaml
+item-level-spread: 2
+```
+
+--------------------------------
+
+### Two-Handed Item Restrictions
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Manages restrictions for players using two-handed items simultaneously with another item. When enabled, players cannot use their weapon or abilities, though they still receive a slow effect.
+
+```yaml
+two-handed-item-restriction: true
+```
+
+--------------------------------
+
+### MMOItems Arrow Volley Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/MythicMob-Mechanics/MMOItems-Arrow-Volley/diff
+
+Defines the parameters for an MMOItems Arrow Volley ability. This includes the number of arrows (a), spread (s), damage reduction (rD), velocity (v), spread origin Y (syo), spread origin X (sfo), stats scaling factor (statsScale), the item ID for ammo (ia or ai), and whether to force the effect (fe). The ability targets a specific location.
+
+```custom
+MMOItemsVolley{a=4;s=30;rD=100;v=20;syo=5.2;sfo=5;statsScale=0.2;ia="m AMMO BLACK_ARROW";fe=true} @TargetLocation
+```
+
+```custom
+MMOItemsVolley{a=4;s=30;rD=100;v=20;syo=5.2;sfo=5;statsScale=0.2;ai="m AMMO BLACK_ARROW";fe=true} @TargetLocation
+```
+
+--------------------------------
+
+### Configure Item Cooldown
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Sets the cooldown duration for item abilities or effects. This parameter specifies the time in ticks or seconds before an ability can be used again.
+
+```yaml
+cooldown: 2
+```
+
+```yaml
+cooldown: 30
+```
+
+```yaml
+cooldown: 4
+```
+
+--------------------------------
+
+### Configure World Generation
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Controls whether world generation features are enabled within the MMOItems plugin. Setting this to `false` disables associated world generation mechanics. This is a primary setting for controlling world-related features.
+
+```yaml
+enable-world-gen: false
+```
+
+--------------------------------
+
+### Item Revision System Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Configures the Item Revision System, which updates items to the latest plugin version. Settings include default item level, tier retention, stat rerolling, and which item data (display name, lore, enchantments, soulbound, modifications) to keep during updates. Also allows disabling update triggers like pickup, craft, click, or join.
+
+```yaml
+item-revision:
+    default-item-level: -1
+    keep-tiers: true
+    reroll-when-updated: false
+    keep-data:
+        display-name: true
+        lore: false
+        enchantments: true
+        soulbound: true
+        modifications: false
+    disable-on:
+        pickup: false
+        craft: true
+        click: false
+        join: false
+```
+
+--------------------------------
+
+### Configure Item Tier Glow Color for Lootsplosion
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Lootsplosion/diff
+
+This YAML configuration snippet demonstrates how to set the glow color for an item tier (e.g., RARE) within the MMOItems plugin. This setting is crucial for enabling the lootsplosion particle effect associated with items of that tier.
+
+```yaml
+RARE:
+  name: '&6&lRARE'
+  unidentification:
+  ...
+  item-glow:
+    color: 'ORANGE'
+```
+
+--------------------------------
+
+### Define Long Sword Item Type Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Types/diff
+
+This configuration defines a new item type named 'LONG_SWORD'. It specifies the display name, internal name, parent item type, and custom lore for the item. This format is used to extend the functionality of MMOItems.
+
+```config
+LONG_SWORD:
+  display: IRON_SWORD:0
+  name: 'Long Sword'
+  parent: 'SWORD'
+  unident-item:
+    name: '&f#prefix#Unidentified Long Sword'
+  lore:
+    - '&7This item is unidentified. I must'
+    - '&7find a way to identify it!'
+    - '{tier}'
+    - '{tier}&8Item Info:'
+    - '{range}&8- &7Lvl Range: &e#range#'
+    - '{tier}&8- &7Item Tier: #prefix##tier#'
+```
+
+--------------------------------
+
+### MMOItems: Keep on Death Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Configures whether soulbound items are kept by the player upon death. This setting controls the persistence of bound items after a player's demise.
+
+```yaml
+# Whether or not soulbound items should be 
+# kept when a player dies. 
+keep-on-death: true
+```
+
+--------------------------------
+
+### Define On-Hit Burn Modifier
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Modifiers/diff
+
+This snippet illustrates the configuration for an 'on-hit' modifier that applies a 'burn' effect. It specifies the type of effect and the mode of application.
+
+```config
+on-hit:
+  type: burn
+  mode: on_hit
+```
+
+--------------------------------
+
+### MMOItems Delay Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/MythicMob-Mechanics/MMOItems-Arrow-Volley/diff
+
+Sets a delay value for a mechanic, likely to control the timing or sequence of events within the game's mechanics.
+
+```custom
+delay 2
+```
+
+--------------------------------
+
+### Complex Stats Structure
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Complex-Stats/diff
+
+Defines the structure for complex item statistics, including base damage, scaling factors, special ability types, and activation modes. This format is used for configuring game item attributes.
+
+```data
+ability:
+  damage:
+    base: 10
+    scale: 3
+  third-ability:
+    type: blizzard
+    mode: left-click
+    damage:
+      base: 5
+    cooldown:
+```
+
+--------------------------------
+
+### Configure Lootsplosion Variance
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Lootsplosion/diff
+
+Customize the X and Y variance for item drops when Lootsplosion is enabled. This setting controls the spread of items flying out of mobs. The configuration is managed within the project's main configuration file.
+
+```YAML
+# config.yml
+# ... other configurations ...
+
+lootsplosion:
+  # Controls the X variance at which items will fly out of mobs
+  x_variance: .4
+  # Controls the Y variance at which items will fly out of mobs
+  y_variance: .5
+
+# ... rest of the configuration ...
+```
+
+--------------------------------
+
+### Off-hand Item Abilities
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+A simple boolean flag to disable abilities when items are held in the off-hand, useful for managing player capabilities with dual-wielding or specific item types like tomes.
+
+```yaml
+disable-abilities-in-offhand: false
+```
+
+--------------------------------
+
+### MMOItems PhatLoots Loot Update Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+Configuration settings for MMOItems to manage loot updates from PhatLoots. This section allows specifying whether to update item display names and enchantments as they are generated, ensuring data consistency over time.
+
+```yaml
+item-revision:
+  phat-loots:
+    display-name: true
+    enchantments: true
+```
+
+--------------------------------
+
+### MMOItems: Auto Soulbind Level Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Sets the default Soulbind level applied when items are automatically soulbound. This influences the initial binding strength or tier for newly bound items.
+
+```yaml
+# The default Soulbind level to apply 
+# when automatically soulbinding 
+auto-bind:
+```
+
+--------------------------------
+
+### MMOItems: Configure Data Preservation on Update
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Controls which specific data points are preserved when an item is updated to its latest revision. This includes options for maintaining the item's display name and lore.
+
+```YAML
+keep-data:
+  display-name: true
+  lore: false # Warning, this prevents stats in the lore from updating visually!
+```
+
+--------------------------------
+
+### CustomModelData for Custom Textures (1.14+)
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Custom-Item-Textures/diff
+
+Explains the use of the CustomModelData NBTTag in Minecraft 1.14 and later versions for applying custom item textures. This method preserves item durability, unlike older durability-based systems. It requires setting up a resource pack and assigning integer values to textures via the in-game edition GUI.
+
+```APIDOC
+Minecraft NBTTag: CustomModelData
+
+Description:
+  Allows items to have custom textures without altering their durability. Introduced in Minecraft 1.14, it replaces older durability-based texture systems.
+
+Usage:
+  1. Set up a custom resource pack.
+  2. In Minecraft, open the edition GUI for the item.
+  3. Locate the 'Custom Model Data' option.
+  4. Input a desired integer that corresponds to a texture defined in your resource pack.
+
+Dependencies:
+  - Minecraft version 1.14 or later.
+  - A correctly configured resource pack.
+
+Limitations:
+  - Requires manual setup of resource packs and in-game configuration.
+  - Relies on integer mapping between NBT data and resource pack assets.
+```
+
+--------------------------------
+
+### MMOItems: Soulbound Item Drop Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Determines if soulbound items can be dropped by the player. This setting affects the ability to manually or automatically drop items that are bound to the player.
+
+```yaml
+# Whether or not soulbound item can be 
+# dropped by the player 
+can-drop: true
+```
+
+--------------------------------
+
+### Item Ability Player Damage
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Controls whether players can damage each other using item abilities. When toggled off, player-vs-player damage via item abilities is disabled.
+
+```yaml
+ability-player-damage: true
+```
+
+--------------------------------
+
+### Keep Tier
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+Preserves the tier of an item if it has one, even if the item's template has a different tier assigned. This ensures that an item's progression or rarity level is maintained.
+
+```text
+tier
+```
+
+--------------------------------
+
+### Enable Two-Handed Item Restriction
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+When set to true, players cannot use their weapon/abilities when holding a two-handed item and one other item simultaneously. When toggled off, players still receive slow 4.
+
+```yaml
+two-handed-item-restriction: true
+```
+
+--------------------------------
+
+### Gemstone Update Configuration (`keep-gem-data`)
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+This configuration section specifies how gemstone data should be handled when an item's Revision ID is updated. It allows control over preserving the gemstone's display name and enchantments.
+
+```config
+item-revision:
+  keep-gem-data:
+    display-name: true
+    enchantments: true
+    ...
+```
+
+--------------------------------
+
+### Configure Action Bar Display
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Controls whether messages are displayed on the action bar instead of the chat. This can help reduce chat spam but might interfere with other action bar plugins.
+
+```yaml
+# Displays a message on the action bar instead of on the chat.  
+# Can be used to reduce chat spam.  
+# Might interfere with other action bar plugins.  
+action-bar-display:
+```
+
+--------------------------------
+
+### MMOItems: Configure Reroll Stats on Update
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+This setting determines if items should reroll their stats when updated. If set to false, items retain their original level and tier from when they were first generated.
+
+```YAML
+reroll-when-updated: false
+```
+
+--------------------------------
+
+### Configure Modifier Selection Chance
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Modifiers/diff
+
+Sets a selection chance for a modifier, controlling the probability that it will apply even if the item has capacity. This is a smaller option to balance modifiers.
+
+```yaml
+modifier:
+chance: .1 # Corresponds to a 10% selection chance
+```
+
+--------------------------------
+
+### Configure Modifier Weight
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Item-Modifiers/diff
+
+Defines a modifier with an associated weight. The weight influences the likelihood of a modifier being applied or selected.
+
+```yaml
+modifier:
+weight: 5
+```
+
+--------------------------------
+
+### Enchantment Handling in Revision ID System
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+Details the logic for keeping or updating item enchantments when their revision ID is updated based on template comparisons. It outlines how enchantments are updated if worse than the template, kept if better and obtainable, and how specific template stats like 'disable-enchanting' and 'disable-repairing' override these rules.
+
+```APIDOC
+Feature: Keep Enchantments
+
+Description:
+  Manages how existing enchantments on an item are treated when the item's revision ID is updated against a new template.
+
+Rules:
+  1. Update to Better Value: If an old enchantment is worse than the corresponding enchantment in the template, it updates to the template's better value.
+  2. Keep Better Enchantment: If an old enchantment is better than the template's value, it is kept, provided it is still obtainable in vanilla Minecraft.
+  3. Overrides:
+     - If the template has `disable-enchanting` enabled, all enchantments are updated to match the template, regardless of their current value or the 'Keep Better Enchantment' rule.
+     - If the template has `disable-repairing` enabled, similar to `disable-enchanting`, enchantments are updated to match the template.
+
+Purpose:
+  To ensure players do not lose their enchantments but can benefit from improved enchantments defined in item templates, while respecting specific template configurations that enforce standardization.
+```
+
+--------------------------------
+
+### Keep Modifications
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+Enables the preservation of all item modifiers, even if they are no longer obtainable or if their weights have changed. This ensures the integrity of item modifications across updates.
+
+```text
+modifications
+```
+
+--------------------------------
+
+### Break Soulbound Item
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Soulbound/diff
+
+To break a soulbound item, players must use a specific consumable. The consumable's soulbound level must be equal to or higher than the item's level. There is a chance of failure, which results in the loss of the consumable.
+
+```APIDOC
+Feature: Breaking Soulbound Items
+
+Description: Allows players to remove the soulbound property from an item.
+
+Requirements:
+- A specific consumable item.
+- Consumable's soulbound level must be >= the item's soulbound level.
+
+Process:
+1. Apply the consumable to the soulbound item.
+
+Outcomes:
+- Success: Soulbound property is removed.
+- Failure: Consumable is lost, soulbound property remains. Failure chance depends on game configuration.
+
+Related:
+- Soulbound Creation (for consumable level requirements)
+- Game Configuration (for failure chance)
+```
+
+--------------------------------
+
+### MMOItems Gameplay Mechanic Disabling
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config-Format-of-Stats/diff
+
+Configuration options to disable core gameplay mechanics such as smelting, smithing, enchanting, repairing, and passive attack effects. These settings control whether players can utilize these features within the game.
+
+```APIDOC
+MMOItems Configuration - Gameplay Mechanics:
+
+- disable-smelting: boolean
+  - Description: If true, disables the smelting mechanic.
+  - Default: false
+
+- disable-smithing: boolean
+  - Description: If true, disables the smithing mechanic.
+  - Default: false
+
+- disable-enchanting: boolean
+  - Description: If true, disables the enchanting mechanic.
+  - Default: false
+
+- disable-repairing: boolean
+  - Description: If true, disables the repairing mechanic.
+  - Default: false
+
+- disable-attack-passive: boolean
+  - Description: If true, disables passive attack effects.
+  - Default: false
+```
+
+--------------------------------
+
+### Disable Item Interactions Configuration
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config
+
+Controls which player interactions are prevented for MMOItems. Options include preventing repair, smelting, enchanting, crafting as ingredients, and shooting arrow-type MMOItems.
+
+```yaml
+disable-interactions:
+    interact: false
+    repair: false
+    enchant: false
+    smelt: false
+    smith: false
+    craft: false
+    arrow-shooting: false
+```
+
+--------------------------------
+
+### Enable/Disable Player Damage in Abilities
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Determines whether players can damage each other using item abilities. When toggled off, player-vs-player damage from item abilities is disabled.
+
+```yaml
+# When toggled off, players can't damage each other using item abilities.  
+ability-player-damage: true
+```
+
+--------------------------------
+
+### Manage Mushroom Block Drops
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Determines if mushroom block drops are replaced when mined, especially with silk-touch. This setting is recommended for servers using custom blocks to prevent issues with mushroom blocks. It ensures consistent behavior when interacting with mushroom blocks.
+
+```yaml
+replace-mushroom-drops: true
+```
+
+--------------------------------
+
+### Keep Skins
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+If enabled, changes made to an item by a skin-type item will be kept. This feature ensures that cosmetic or visual modifications applied via skins are not lost.
+
+```text
+skins
+```
+
+--------------------------------
+
+### Disable Abilities in Offhand
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Controls whether abilities can be used from the player's offhand. Setting this to true prevents players from using abilities while interacting with objects like chests or during mining, which is useful for items like tomes that might be held in the offhand.
+
+```yaml
+# Enable/Disable abilities in the players offhand, stops  
+# players using abilities when interacting with chests, mining etc.  
+# Very useful if your have a lot of items that your players use in their  
+# off-hand like tomes!  
+disable-abilities-in-offhand: false
+```
+
+--------------------------------
+
+### Keep External Stat History
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Revision-ID-System/diff
+
+Keeps external stat history data added by third-party plugins, excluding enchantments. This ensures that modifications to item stats from external sources are retained.
+
+```text
+external-sh
+```
+
+--------------------------------
+
+### Control Tier Inheritance During Updates
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Determines whether the current tier of an item should be carried over during updates. This setting has no effect if 'reroll-when-updated' is set to true.
+
+```YAML
+keep-tiers: true
+```
+
+--------------------------------
+
+### Set Default Item Level for Updates
+
+Source: https://gitlab.com/phoenix-dvpmt/mmoitems/-/wikis/Config.yml/diff
+
+Configures the item level assigned when items are updated by the revision system. A value of -1 uses the item's previous level. This setting has no effect if 'reroll-when-updated' is set to true.
+
+```YAML
+default-item-level: -1
+```
+
+=== COMPLETE CONTENT === This response contains all available snippets from this library. No additional content exists. Do not make further requests.

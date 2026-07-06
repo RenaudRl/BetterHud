@@ -65,6 +65,40 @@ float fogDistance(vec3 pos, int shape) {
     }
 }
 
+// ============================================================
+// BTC MINIMAP — constants (injected via shader.yml at reload)
+// ============================================================
+#ifdef IS_GUI
+// Do not modify this line.
+const vec2 MINIMAP_UV_OFFSETS[4] = vec2[](vec2(-0.5), vec2(-0.5, 0.5), vec2(0.5), vec2(0.5, -0.5));
+const vec2 MINIMAP_POSITIONS[4]  = vec2[](vec2(0.), vec2(0., 1.), vec2(1.), vec2(1., 0.));
+const vec2 TOP    = vec2(0.);
+const vec2 RIGHT  = vec2(-1., 0.);
+const vec2 LEFT   = vec2(0.);
+const vec2 BOTTOM = vec2(0., -1.);
+
+// --- Configurable via shader.yml ---
+// Texture size in pixels (must NOT be 256x256 or 64x64)
+const ivec2 MINIMAP_TEX_SIZE = ivec2(MINIMAP_TEX_SIZE_X, MINIMAP_TEX_SIZE_Y);
+// Display size in GUI pixels
+const float MINIMAP_SIZE = float(MINIMAP_DISPLAY_SIZE);
+// Padding from corner in GUI pixels
+const vec2 MINIMAP_PADDING = vec2(float(MINIMAP_PADDING_X), float(MINIMAP_PADDING_Y));
+// Corner alignment (TOP+LEFT = top-left, etc.)
+const vec2 MINIMAP_ALIGN = vec2(MINIMAP_ALIGN_X, MINIMAP_ALIGN_Y);
+// Center block coordinates of the minimap texture
+const ivec2 MINIMAP_CENTER = ivec2(MINIMAP_CENTER_X, MINIMAP_CENTER_Z);
+// Region in blocks the minimap shows
+const float MINIMAP_SIZE_IN_BLOCKS = float(MINIMAP_BLOCKS_VISIBLE);
+// Blocks per pixel (< 1 zooms in)
+const float MINIMAP_BLOCKS_PER_PIXEL = MINIMAP_BLOCKS_PER_PX;
+// Frame thickness in GUI pixels (0 = no frame)
+const float MINIMAP_FRAME_SIZE = float(MINIMAP_FRAME_PX);
+// Circular cutout (true = circle, false = square)
+const bool MINIMAP_CIRCULAR = bool(MINIMAP_IS_CIRCULAR);
+#endif
+// ============================================================
+
 #GenerateOtherDefinedMethod
 
 void main() {
@@ -157,4 +191,31 @@ void main() {
 
     texCoord0 = UV0;
     gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
+
+    // ============================================================
+    // BTC MINIMAP — shader rendering
+    // Detects the minimap texture by its size and renders it
+    // in GUI space using the player's camera position.
+    // ============================================================
+#ifdef IS_GUI
+    if (textureSize(Sampler0, 0).rg == MINIMAP_TEX_SIZE) {
+        // GUI pixel-space position
+        vec2 vertPos = MINIMAP_SIZE * (MINIMAP_ALIGN + MINIMAP_POSITIONS[gl_VertexID & 3])
+                     + (MINIMAP_PADDING * sign(MINIMAP_ALIGN + 0.5));
+
+        // Convert to clip space and apply corner alignment
+        gl_Position = ProjMat * ModelViewMat * vec4(vertPos, 0., 1.)
+                    + vec4(vec2(-2., 2.) * MINIMAP_ALIGN, 0., 0.);
+
+        // UV: center on player's block position via CameraBlockPos (from globals.glsl)
+        texCoord0 = (
+            0.5 * vec2(MINIMAP_TEX_SIZE)
+            + MINIMAP_BLOCKS_PER_PIXEL * (
+                vec2(CameraBlockPos.xz) - vec2(CameraOffset.xz) - vec2(MINIMAP_CENTER)
+                + MINIMAP_UV_OFFSETS[gl_VertexID & 3] * MINIMAP_SIZE_IN_BLOCKS
+            )
+        ) / vec2(MINIMAP_TEX_SIZE);
+    }
+#endif
+    // ============================================================
 }

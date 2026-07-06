@@ -1,0 +1,3 @@
+welcome_effect:
+  image: "example_screen_effect" # Se réfère au nom défini dans le dossier images/
+  tps: 2 # Vitesse de l'animation en ticks Minecraft (2 = 10 images par seconde)

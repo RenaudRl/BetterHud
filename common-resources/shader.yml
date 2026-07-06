@@ -1,2 +1,23 @@
 bar-color: yellow
 disable-level-text: false
+
+extra-shaders:
+  simplified-glowing: true
+  wavy-water:
+    enabled: true
+    biomes: [minecraft:the_void, minecraft:swamp]
+  custom-particles: true
+  hide-sidebar-numbers: true
+  chat-bar-remover: true
+
+minimap:
+  enabled: true
+  tex-size: [2048, 2048]
+  display-size: 100
+  padding: [20, 20]
+  align: TOP_LEFT
+  blocks-visible: 64
+  blocks-per-pixel: 1.0
+  frame-size: 2
+  frame-color: "#1a1a1a"
+  circular: false

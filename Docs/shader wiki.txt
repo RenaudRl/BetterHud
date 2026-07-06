@@ -1,0 +1,526 @@
+# Minecraft Core Shaders Documentation
+
+This repository documents Minecraft's core shader system introduced in snapshot 21w10a (1.17), which allows resource packs to modify OpenGL GLSL shaders for customizing game rendering. Core shaders control nearly every visual element in Minecraft, from blocks and entities to UI elements and particles, providing unprecedented customization capabilities without requiring mods. The system uses vertex and fragment shaders written in GLSL (OpenGL Shading Language) that can be overridden through resource packs, allowing for effects like custom lighting, visual modifications, and advanced rendering techniques.
+
+The documentation covers the complete shader ecosystem including 60+ core shaders, uniforms (read-only variables passed to shaders), include files with shared functions, and techniques for isolating specific game elements. Each shader targets specific rendering contexts like solid blocks, translucent materials, entities, UI elements, or particles, with detailed information about their inputs, outputs, and the exact game elements they affect. This makes it possible to create sophisticated visual modifications ranging from simple color adjustments to complex rendering effects while maintaining compatibility with vanilla Minecraft servers.
+
+## Core Shader Structure
+
+Understanding the basic structure of Minecraft shaders and resource pack organization
+
+Minecraft shaders are located in the `assets/minecraft/shaders` directory of resource packs, with four main subdirectories: `core` (main rendering shaders), `post` (post-processing effects), `program` (shader programs), and `include` (shared code). Each core shader consists of three files: a `.vsh` vertex shader that processes vertex positions, a `.fsh` fragment shader that determines pixel colors, and a `.json` configuration file that defines shader inputs and samplers.
+
+```glsl
+// Example vertex shader structure (rendertype_solid.vsh)
+#version 150
+
+in vec3 Position;
+in vec4 Color;
+in vec2 UV0;
+in ivec2 UV2;
+
+uniform mat4 ModelViewMat;
+uniform mat4 ProjMat;
+uniform vec3 ChunkOffset;
+
+out vec4 vertexColor;
+out vec2 texCoord0;
+
+void main() {
+    gl_Position = ProjMat * ModelViewMat * vec4(Position + ChunkOffset, 1.0);
+    vertexColor = Color;
+    texCoord0 = UV0;
+}
+```
+
+## Modifying Block Shaders
+
+Customizing solid block rendering using rendertype_solid
+
+The `rendertype_solid` shader renders all opaque blocks, lava, and falling blocks. By modifying this shader, you can change how solid blocks appear in-world. The shader receives position, color, UV coordinates, and lightmap data for each vertex.
+
+```glsl
+// Fragment shader example (rendertype_solid.fsh)
+#version 150
+
+uniform sampler2D Sampler0;
+uniform sampler2D Sampler2;
+
+in vec4 vertexColor;
+in vec2 texCoord0;
+in vec2 texCoord2;
+
+out vec4 fragColor;
+
+void main() {
+    vec4 color = texture(Sampler0, texCoord0);
+
+    // Apply custom tint to stone blocks (example)
+    if (color.rgb == vec3(0.5, 0.5, 0.5)) {
+        color.rgb *= vec3(1.0, 0.8, 0.8); // Reddish tint
+    }
+
+    fragColor = color * vertexColor;
+}
+```
+
+## Entity Shader Customization
+
+Modifying entity appearance using entity_cutout_no_cull
+
+The `rendertype_entity_cutout_no_cull` shader handles most entity rendering including mobs, signs, shulker boxes, and player heads with default skins. This shader provides access to entity positions in view space, allowing for per-entity effects.
+
+```glsl
+// Fragment shader for entity modification (rendertype_entity_cutout_no_cull.fsh)
+#version 150
+
+uniform sampler2D Sampler0;
+uniform sampler2D Sampler1;
+uniform vec4 ColorModulator;
+
+in vec4 vertexColor;
+in vec2 texCoord0;
+in vec2 texCoord1;
+in float vertexDistance;
+
+out vec4 fragColor;
+
+void main() {
+    vec4 color = texture(Sampler0, texCoord0);
+
+    // Make entities glow at night
+    float lightLevel = texture(Sampler1, texCoord1).r;
+    if (lightLevel < 0.5) {
+        color.rgb += vec3(0.2);
+    }
+
+    if (color.a < 0.1) {
+        discard;
+    }
+
+    fragColor = color * vertexColor * ColorModulator;
+}
+```
+
+## UI Element Isolation
+
+Preventing shader effects from affecting inventory items
+
+GUI elements often share shaders with in-world objects. To isolate inventory items from world modifications, use depth-based detection in entity shaders.
+
+```glsl
+// Vertex shader isolating GUI elements (rendertype_entity_cutout.vsh)
+#version 150
+
+in vec3 Position;
+in vec4 Color;
+in vec2 UV0;
+in ivec2 UV2;
+
+uniform mat4 ModelViewMat;
+uniform mat4 ProjMat;
+
+out vec4 vertexColor;
+out vec2 texCoord0;
+out float depth;
+out float isGui;
+
+void main() {
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+
+    // Calculate depth for GUI detection
+    depth = -(ModelViewMat * vec4(1.0)).z;
+
+    // Check if rendering GUI (ProjMat[3].x == -1 for orthographic projection)
+    isGui = (ProjMat[3].x == -1.0) ? 1.0 : 0.0;
+
+    // Inventory items have specific depth values:
+    // 1734 = inventory, 1834 = hotbar, 1602 = dragging
+
+    vertexColor = Color;
+    texCoord0 = UV0;
+}
+```
+
+## Using GameTime Uniform
+
+Creating animated effects with the GameTime uniform
+
+The `GameTime` uniform continuously increments from 0 to 1 over 24000 ticks (20 minutes), synchronized across all players. It's useful for time-based animations and effects.
+
+```glsl
+// Fragment shader with animated effect (rendertype_translucent.fsh)
+#version 150
+
+uniform sampler2D Sampler0;
+uniform float GameTime;
+
+in vec4 vertexColor;
+in vec2 texCoord0;
+in vec3 Position;
+
+out vec4 fragColor;
+
+void main() {
+    vec4 color = texture(Sampler0, texCoord0);
+
+    // Create pulsing effect on glass blocks
+    float pulse = sin(GameTime * 1200.0) * 0.5 + 0.5;
+    color.rgb = mix(color.rgb, vec3(0.5, 0.7, 1.0), pulse * 0.3);
+
+    // Add wave distortion
+    vec2 distortedUV = texCoord0;
+    distortedUV.x += sin(Position.y + GameTime * 1200.0) * 0.01;
+    color = texture(Sampler0, distortedUV);
+
+    fragColor = color * vertexColor;
+}
+```
+
+## Particle Shader Modification
+
+Customizing all particle appearances
+
+The `particle` shader controls all particles and weather effects (rain and snow). Modifying this shader affects every particle in the game simultaneously.
+
+```glsl
+// Fragment shader for particle effects (particle.fsh)
+#version 150
+
+uniform sampler2D Sampler0;
+uniform vec4 ColorModulator;
+
+in vec4 vertexColor;
+in vec2 texCoord0;
+in float vertexDistance;
+
+out vec4 fragColor;
+
+void main() {
+    vec4 color = texture(Sampler0, texCoord0);
+
+    // Make particles rainbow colored
+    color.r = abs(sin(vertexDistance * 0.1));
+    color.g = abs(sin(vertexDistance * 0.1 + 2.094));
+    color.b = abs(sin(vertexDistance * 0.1 + 4.189));
+
+    // Override particle transparency (affects some particles)
+    color.a = vertexColor.a;
+
+    fragColor = color * ColorModulator;
+}
+```
+
+## Text Rendering Customization
+
+Isolating different text types using Position.z values
+
+The `rendertype_text` shader handles all text rendering including the F3 menu, chat, entity names, and UI text. Different text types can be isolated using their z-coordinate values.
+
+```glsl
+// Fragment shader for text customization (rendertype_text.fsh)
+#version 150
+
+uniform sampler2D Sampler0;
+uniform vec4 ColorModulator;
+
+in vec4 vertexColor;
+in vec2 texCoord0;
+in vec3 position;
+
+out vec4 fragColor;
+
+void main() {
+    vec4 color = texture(Sampler0, texCoord0) * vertexColor;
+
+    // Text shadows are at base z, text is at z + 0.03
+    // z = 0.0: title text, bossbar
+    // z = 100.0: chat
+    // z = 200.0: hotbar item count
+    // z = 300.0: inventory item count
+
+    if (position.z > 99.0 && position.z < 101.0) {
+        // Make chat text highlighted
+        color.rgb = mix(color.rgb, vec3(1.0, 1.0, 0.0), 0.3);
+    }
+
+    if (color.a < 0.1) {
+        discard;
+    }
+
+    fragColor = color * ColorModulator;
+}
+```
+
+## Enchantment Glint Modification
+
+Customizing the enchantment glint effect
+
+The `rendertype_glint` shader controls the enchantment glint effect on items and blocks. It uses the `TextureMat` uniform for animation and `GlintAlpha` for the accessibility setting.
+
+```glsl
+// Fragment shader for custom glint (rendertype_glint.fsh)
+#version 150
+
+uniform sampler2D Sampler0;
+uniform mat4 TextureMat;
+uniform float GlintAlpha;
+uniform float GameTime;
+
+in vec4 vertexColor;
+in vec2 texCoord0;
+
+out vec4 fragColor;
+
+void main() {
+    // Apply texture matrix transformation
+    vec4 transformedUV = TextureMat * vec4(texCoord0, 0.0, 1.0);
+    vec4 color = texture(Sampler0, transformedUV.xy);
+
+    // Change glint color based on time
+    float hue = fract(GameTime * 0.5);
+    vec3 glintColor;
+    if (hue < 0.33) {
+        glintColor = vec3(1.0, 0.5, 1.0); // Magenta
+    } else if (hue < 0.66) {
+        glintColor = vec3(0.5, 1.0, 1.0); // Cyan
+    } else {
+        glintColor = vec3(1.0, 1.0, 0.5); // Yellow
+    }
+
+    color.rgb = glintColor;
+    color.a *= GlintAlpha * vertexColor.a;
+
+    fragColor = color;
+}
+```
+
+## Fog and Lighting Functions
+
+Using shared include functions for consistent rendering
+
+Include files provide shared functions used across multiple shaders. The `fog.glsl` includes fog calculations, while `light.glsl` handles lighting.
+
+```glsl
+// Using fog functions in a shader
+#include "fog.glsl"
+
+uniform vec4 FogColor;
+uniform float FogStart;
+uniform float FogEnd;
+
+in float vertexDistance;
+in vec4 vertexColor;
+
+out vec4 fragColor;
+
+void main() {
+    vec4 color = vertexColor;
+
+    // Apply linear fog
+    fragColor = linear_fog(color, vertexDistance, FogStart, FogEnd, FogColor);
+
+    // Or use fog fade factor
+    float fogFade = linear_fog_fade(vertexDistance, FogStart, FogEnd);
+    fragColor = mix(FogColor, color, fogFade);
+}
+```
+
+```glsl
+// Using lightmap sampling in entity shader
+#include "light.glsl"
+
+uniform sampler2D Sampler2; // Lightmap
+in vec2 texCoord2; // Light UV coordinates
+
+void main() {
+    vec4 color = texture(Sampler0, texCoord0);
+
+    // Sample lightmap (texCoord2.x = block light * 16, texCoord2.y = sky light * 16)
+    vec4 light = minecraft_sample_lightmap(Sampler2, texCoord2);
+
+    fragColor = color * light;
+}
+```
+
+## World Space Position Calculation
+
+Converting chunk-relative positions to world coordinates
+
+Block shaders use chunk-relative positions (0-16), requiring the ChunkOffset uniform to calculate true world positions for effects like distance-based rendering.
+
+```glsl
+// Vertex shader calculating world position (rendertype_solid.vsh)
+#version 150
+
+in vec3 Position;
+in vec4 Color;
+in vec2 UV0;
+
+uniform mat4 ModelViewMat;
+uniform mat4 ProjMat;
+uniform vec3 ChunkOffset;
+
+out vec4 vertexColor;
+out vec2 texCoord0;
+out vec3 worldPos;
+
+void main() {
+    // Position is 0-16 within chunk, ChunkOffset gives chunk location
+    worldPos = Position + ChunkOffset;
+
+    gl_Position = ProjMat * ModelViewMat * vec4(worldPos, 1.0);
+
+    vertexColor = Color;
+    texCoord0 = UV0;
+}
+```
+
+```glsl
+// Fragment shader using world position (rendertype_solid.fsh)
+#version 150
+
+uniform sampler2D Sampler0;
+in vec3 worldPos;
+in vec2 texCoord0;
+
+out vec4 fragColor;
+
+void main() {
+    vec4 color = texture(Sampler0, texCoord0);
+
+    // Create grid pattern at y=64
+    if (abs(worldPos.y - 64.0) < 0.1) {
+        if (mod(worldPos.x, 1.0) < 0.1 || mod(worldPos.z, 1.0) < 0.1) {
+            color.rgb = vec3(1.0, 0.0, 0.0);
+        }
+    }
+
+    // Distance-based effects from world origin
+    float distFromOrigin = length(worldPos.xz);
+    if (distFromOrigin > 1000.0) {
+        color.rgb *= 0.5; // Darken distant blocks
+    }
+
+    fragColor = color;
+}
+```
+
+## Sky and Atmospheric Rendering
+
+Modifying sky color and atmospheric effects
+
+The `position` shader controls sky color rendering, while `position_color` handles sky gradients during sunrise and sunset.
+
+```glsl
+// Fragment shader for custom sky color (position.fsh)
+#version 150
+
+uniform vec4 ColorModulator;
+
+out vec4 fragColor;
+
+void main() {
+    // Default sky just uses ColorModulator (provided by game)
+    // Can modify to create custom sky effects
+    vec4 skyColor = ColorModulator;
+
+    // Make sky purple
+    skyColor.rgb = mix(skyColor.rgb, vec3(0.5, 0.0, 1.0), 0.5);
+
+    fragColor = skyColor;
+}
+```
+
+```glsl
+// Fragment shader for sunset/sunrise overlay (position_color.fsh)
+#version 150
+
+in vec4 vertexColor;
+
+out vec4 fragColor;
+
+void main() {
+    // vertexColor contains the sunset/sunrise gradient
+    // Active between times 11315-14150 (sunset) and 21830-24670 (sunrise)
+
+    vec4 color = vertexColor;
+
+    // Enhance sunset colors
+    if (color.r > 0.5 && color.g < 0.5) {
+        color.r *= 1.5;
+        color.g *= 0.8;
+    }
+
+    fragColor = color;
+}
+```
+
+## Summary and Applications
+
+The Minecraft core shader system provides comprehensive control over game rendering through GLSL shaders that can be modified via resource packs. Primary use cases include creating custom visual effects like animated blocks, colored lighting, or custom entity appearances; developing resource packs with unique aesthetics such as cel-shading or painterly styles; building data-driven customization systems like custom armor using leather armor as a base (as demonstrated in the Fancy Pants project); and implementing advanced rendering techniques including dynamic emissives, fog effects, or custom particle systems. The system's power lies in its ability to modify rendering without requiring client-side mods, making shader-based resource packs compatible with vanilla multiplayer servers.
+
+Integration patterns typically involve isolating specific game elements using depth values, position coordinates, or projection matrix checks to prevent unintended modifications; utilizing uniforms like GameTime for animations, ChunkOffset for world-space calculations, and lightmap samplers for lighting effects; leveraging include files (fog.glsl, light.glsl) for consistent rendering across multiple shaders; and combining multiple shader modifications to achieve complex effects while maintaining game performance. The shader reload mod is essential for development, allowing rapid iteration without full resource pack reloads and providing in-chat error messages. The system supports sophisticated techniques like vertex manipulation for custom geometry, texture coordinate modification for UV animations, and conditional rendering based on world position or time, making it a powerful tool for creative expression within Minecraft's rendering pipeline.
+
+---
+
+# BetterHUD Custom Shader Ecosystem (1.21.11)
+
+Beyond vanilla techniques, this project leverages complex systems built entirely within the core shaders (`text.vsh` and `text.fsh`) to achieve mod-like features.
+
+## 1. Screen Transitions (`#FDxxyy` System)
+
+Screen transitions are fully rendered via the `rendertype_text` shader using the `/title` command with a special character block (`█`).
+- **Trigger**: The vertex shader detects a specific Red channel value (`Color.r == 253` / `0xFD`).
+- **Data encoding**: The Green (`Color.g`) and Blue (`Color.b`) channels pass the transition ID (Type) and an optional parameter (e.g. Color for fade).
+- **Execution**: The vertex shader expands the single character quad to cover the entire screen (`gl_Position = vec4(scr_corner * 2.0 - 1.0, 0.0, 1.0);`). The fragment shader then calculates the `alpha` based on the `/title` fade-in/out progress (`Color.a` mapped to `progress`).
+- **List of Effects**: Fade, Iris, Wipe (L→R, T→B, Diagonal), Curtains, Pixelate, Hex dissolve, Heart shape, and 30+ more. Fixes for these effects ensure that `alpha=0` at `progress=0` and `alpha=1` at `progress=1`.
+
+## 2. Text Effects (Color Code System)
+
+Custom text effects (waving, shimmering, chromatic aberration, etc.) are applied by tinting text with precise RGB values.
+- **Trigger**: The pixel color is parsed in the shader. If it matches a defined key (e.g., `#F0F000`), a specific effect block runs.
+- **Includes**: The logic requires modular GLSL. `text_effects.glsl` holds movement/color functions; `text_effects_config.glsl` maps specific macros (`TEXT_EFFECT(R,G,B)`) to these effects.
+- **Shadow Removal**: Minecraft renders text shadows natively. The shader can detect shadows (`textData.isShadow`) and remove or modify them independently of the main text.
+
+## 3. HUD Properties (Bitwise Offset Logic)
+
+Custom HUD elements can have built-in effects controlled via Y-coordinate bitwise parameters:
+- **Encoding**: The `pos.y` of the HUD elements encodes a bitmask controlling parameters. 
+- **Flags**:
+  - `(property & 1)`: Waving vertical movement (`sin` function driven by `GameTime`).
+  - `(property & 2)`: Rainbow pulsing (HSV color cycling).
+  - `(property & 4)`: Tiny rainbow (localized pixel-based rainbow).
+- This ensures lightweight, data-driven HUD elements without requiring individual entity or block shaders.
+
+## 4. Sliding Titles
+
+Custom title entrance animations:
+- **Z-Detection**: Isolated via Z depths, specifically `Position.z == 2400.12`, `2400.06`, or `2400.0`.
+- **Transformation**: A translation matrix pushes the text from the side of the screen (`finalX`) using an easing equation based on the title fade alpha (`posAlpha = t * t * (3.0 - 2.0 * t)`). 
+
+## 5. Screen Effects (Spritesheets)
+
+Full-screen sprite animations are mapped using Y-Axis tricks.
+- **Detection**: `screenEffectId >= 4.0` (derived from `pos.y + 1000.0 / 2000.0`).
+- **Scaling**: Coordinates are normalized back into screen boundaries `[-1, 1]` expanding the asset universally over the viewport.
+
+---
+
+# Technical Limits & Best Practices 
+
+## 1. Shader Compilation Limits ("Instruction Limits" & Branches)
+- Large `switch` or huge sequences of `else if` in shaders will hit the graphics driver compilation limits (especially on Intel/AMD integrated GPUs or macOS).
+- **Workarounds**: Use `if-else` blocks or mathematical substitutions instead of massive lookup tables. Splitting shaders or using macro defines can slightly help.
+
+## 2. Post-Processing Constraints
+- Core shaders ($\neq$ post shaders) **cannot sample the screen's existing rendered pixels**. You cannot blur the background behind a UI menu because the fragment shader isn't allowed to read a "backbuffer" texture.
+- **Solution**: To blur the screen, use the native `minecraft:blur` post-effect or draw an opaque block/texture over the screen.
+
+## 3. Performance (MSPT vs. FPS)
+- **Geometry overhead**: `text.vsh`/`text.fsh` run for **every single character** of text rendered (chat, nametags, F3). Heavy logic must be strictly guarded behind absolute checks (like `isScreenTransition` or `colorId()`). Do not calculate heavy `atan()` or `noise()` functions unless absolutely necessary.
+- **Avoid Discard**: `discard;` destroys early-Z testing and dramatically impacts fill-rate on older GPUs, especially if used extensively in particle or text shaders. BetterHud uses it strategically.
+
+## 4. Folia & Thread-Safety (Backend vs Visuals)
+- Core shaders run **strictly Client-Side** on the GPU. They are implicitly thread-safe from Folia's tick regions.
+- However, triggering these properties (like sending `/title` or modifying actionbars) must respect Folia Schedulers on the backend. Do not assume the client’s view distance matches chunk-loaded boundaries on the server.

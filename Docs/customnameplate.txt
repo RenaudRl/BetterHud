@@ -1,0 +1,574 @@
+# Custom Nameplates
+
+Custom Nameplates is a comprehensive Minecraft plugin that provides advanced customization for player nameplates, action bars, boss bars, chat bubbles, and other display features. Built with a modular architecture, it enables server administrators and developers to create rich, dynamic visual experiences for players through configurable nameplate designs, animated text, and image rendering. The plugin supports multiple server platforms (Bukkit/Spigot and Sponge) and Minecraft versions 1.20.2 through 1.21.2.
+
+The plugin is structured into three main modules: an API layer providing extensible interfaces and core abstractions, a backend implementation containing feature logic and storage mechanisms, and platform-specific implementations for different server types. It features a sophisticated placeholder system for dynamic text replacement, multiple storage backends (YAML, JSON, SQLite, MySQL, MongoDB, Redis), conditional requirements for feature activation, and extensive integration with popular Minecraft plugins like ItemsAdder, Oraxen, PlaceholderAPI, and various chat plugins.
+
+## API Integration
+
+### Adding Custom Nameplates to Your Project
+
+Add the repository and dependency to your Gradle build file.
+
+```kotlin
+repositories {
+    maven("https://repo.momirealms.net/releases/")
+}
+
+dependencies {
+    compileOnly("net.momirealms:custom-nameplates:3.0.19")
+}
+```
+
+### Getting the API Instance
+
+Access the CustomNameplatesAPI singleton instance to interact with the plugin.
+
+```java
+import net.momirealms.customnameplates.api.CustomNameplatesAPI;
+import net.momirealms.customnameplates.api.CustomNameplates;
+
+// Get the API instance
+CustomNameplatesAPI api = CustomNameplatesAPI.getInstance();
+
+// Get the plugin instance
+CustomNameplates plugin = api.plugin();
+
+// Get a player by UUID
+CNPlayer player = api.getPlayer(playerUUID);
+if (player != null && player.isOnline()) {
+    System.out.println("Player " + player.name() + " is online");
+}
+```
+
+## Player Management
+
+### Working with CNPlayer Objects
+
+Retrieve and manipulate player data, including position, state, and custom nameplate settings.
+
+```java
+import net.momirealms.customnameplates.api.CNPlayer;
+import net.momirealms.customnameplates.api.CustomNameplatesAPI;
+import java.util.UUID;
+
+UUID playerUUID = UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5");
+CNPlayer player = CustomNameplatesAPI.getInstance().getPlayer(playerUUID);
+
+if (player != null && player.isLoaded()) {
+    // Get player information
+    String name = player.name();
+    String world = player.world();
+    Vector3 position = player.position();
+    int entityId = player.entityID();
+
+    // Check player state
+    boolean isCrouching = player.isCrouching();
+    boolean isFlying = player.isFlying();
+    boolean isSpectator = player.isSpectator();
+    double scale = player.scale();
+    int air = player.remainingAir();
+
+    // Check permissions
+    if (player.hasPermission("customnameplates.vip")) {
+        System.out.println("Player has VIP permission");
+    }
+
+    // Get nearby players
+    Collection<CNPlayer> nearbyPlayers = player.nearbyPlayers();
+    System.out.println("Players nearby: " + nearbyPlayers.size());
+}
+```
+
+### Managing Player Nameplates and Bubbles
+
+Set and retrieve player nameplate and bubble configurations.
+
+```java
+import net.momirealms.customnameplates.api.CNPlayer;
+
+CNPlayer player = api.getPlayer(playerUUID);
+if (player != null && player.isLoaded()) {
+    // Get current nameplate
+    String currentNameplate = player.currentNameplate();
+    System.out.println("Current nameplate: " + currentNameplate);
+
+    // Set temporary nameplate (not saved to database)
+    boolean success = player.setCurrentNameplate("vip_nameplate");
+    if (success) {
+        System.out.println("Temporary nameplate set");
+    }
+
+    // Set and save nameplate data to database
+    success = player.setNameplateData("premium_nameplate");
+    if (success) {
+        player.save(); // Persist to database
+        System.out.println("Nameplate saved to database");
+    }
+
+    // Work with chat bubbles
+    String currentBubble = player.currentBubble();
+    player.setCurrentBubble("custom_bubble");
+    player.setBubbleData("custom_bubble");
+    player.save();
+}
+```
+
+## Nameplate, Background, and Bubble Management
+
+### Retrieving Nameplate Configurations
+
+Access available nameplate configurations and check player permissions.
+
+```java
+import net.momirealms.customnameplates.api.feature.nameplate.Nameplate;
+import net.momirealms.customnameplates.api.feature.nameplate.NameplateManager;
+import java.util.Collection;
+import java.util.Optional;
+
+CustomNameplates plugin = api.plugin();
+NameplateManager nameplateManager = plugin.getNameplateManager();
+
+// Get a specific nameplate by ID
+Optional<Nameplate> nameplate = api.getNameplate("epic_nameplate");
+if (nameplate.isPresent()) {
+    System.out.println("Found nameplate: " + nameplate.get().id());
+}
+
+// Get all available nameplates
+Collection<Nameplate> allNameplates = nameplateManager.nameplates();
+System.out.println("Total nameplates: " + allNameplates.size());
+
+// Check if player has access to a nameplate
+CNPlayer player = api.getPlayer(playerUUID);
+if (player != null) {
+    boolean hasAccess = nameplateManager.hasNameplate(player, "epic_nameplate");
+    if (hasAccess) {
+        // Get all nameplates available to this player
+        Collection<Nameplate> availableNameplates = nameplateManager.availableNameplates(player);
+        System.out.println("Player has access to " + availableNameplates.size() + " nameplates");
+    }
+}
+
+// Get default nameplate
+String defaultId = nameplateManager.defaultNameplateId();
+System.out.println("Default nameplate: " + defaultId);
+```
+
+### Working with Backgrounds and Bubbles
+
+Retrieve background and bubble configurations by ID.
+
+```java
+import net.momirealms.customnameplates.api.feature.background.Background;
+import net.momirealms.customnameplates.api.feature.bubble.Bubble;
+import java.util.Optional;
+
+// Get a background
+Optional<Background> background = api.getBackground("premium_bg");
+if (background.isPresent()) {
+    System.out.println("Found background: " + background.get().id());
+}
+
+// Get a bubble
+Optional<Bubble> bubble = api.getBubble("chat_bubble_1");
+if (bubble.isPresent()) {
+    System.out.println("Found bubble: " + bubble.get().id());
+}
+```
+
+## Text and Image Rendering
+
+### Creating Text with Images
+
+Generate formatted text with embedded images and proper spacing.
+
+```java
+import net.momirealms.customnameplates.api.feature.AdaptiveImage;
+import net.momirealms.customnameplates.api.CustomNameplatesAPI;
+
+CustomNameplatesAPI api = CustomNameplatesAPI.getInstance();
+
+// Assume you have an AdaptiveImage instance (typically retrieved from configuration)
+AdaptiveImage image = getCustomImage(); // Implementation specific
+
+// Create text with image, applying left and right margins
+String text = "Player Name";
+float leftMargin = 2.0f;
+float rightMargin = 2.0f;
+
+String formattedText = api.createTextWithImage(text, image, leftMargin, rightMargin);
+// The result includes proper image positioning and margins around the text
+System.out.println("Formatted text: " + formattedText);
+```
+
+### Measuring Text Width and Creating Static Positioned Text
+
+Calculate text advance and position text with alignment.
+
+```java
+import net.momirealms.customnameplates.api.placeholder.internal.StaticPosition;
+
+CustomNameplatesAPI api = CustomNameplatesAPI.getInstance();
+
+// Get the visual width of text
+String text = "Hello World";
+float advance = api.getTextAdvance(text);
+System.out.println("Text width: " + advance + " pixels");
+
+// Create left-aligned text within a specific width
+String leftAligned = api.createStaticText(text, 100, StaticPosition.LEFT);
+
+// Create right-aligned text
+String rightAligned = api.createStaticText(text, 100, StaticPosition.RIGHT);
+
+// Create center-aligned text
+String centered = api.createStaticText(text, 100, StaticPosition.MIDDLE);
+
+// The plugin automatically adds offset characters to position the text
+System.out.println("Left aligned: " + leftAligned);
+System.out.println("Right aligned: " + rightAligned);
+System.out.println("Centered: " + centered);
+```
+
+## Placeholder System
+
+### Registering Custom Placeholders
+
+Create shared, player-specific, and relational placeholders with custom refresh intervals.
+
+```java
+import net.momirealms.customnameplates.api.placeholder.PlaceholderManager;
+import net.momirealms.customnameplates.api.placeholder.SharedPlaceholder;
+import net.momirealms.customnameplates.api.placeholder.PlayerPlaceholder;
+import net.momirealms.customnameplates.api.placeholder.RelationalPlaceholder;
+import net.momirealms.customnameplates.api.CNPlayer;
+
+CustomNameplates plugin = api.plugin();
+PlaceholderManager placeholderManager = plugin.getPlaceholderManager();
+
+// Register a shared placeholder (same for all players)
+SharedPlaceholder serverPlaceholder = placeholderManager.registerSharedPlaceholder(
+    "%server_time%",
+    20, // Refresh every 20 ticks (1 second)
+    () -> {
+        return String.valueOf(System.currentTimeMillis());
+    }
+);
+
+// Register a player-specific placeholder
+PlayerPlaceholder healthPlaceholder = placeholderManager.registerPlayerPlaceholder(
+    "%player_health%",
+    10, // Refresh every 10 ticks
+    (player) -> {
+        // Get player's health from underlying player object
+        Object bukkitPlayer = player.player();
+        if (bukkitPlayer instanceof org.bukkit.entity.Player) {
+            return String.valueOf(((org.bukkit.entity.Player) bukkitPlayer).getHealth());
+        }
+        return "0";
+    }
+);
+
+// Register a relational placeholder (between two players)
+RelationalPlaceholder distancePlaceholder = placeholderManager.registerRelationalPlaceholder(
+    "%player_distance%",
+    20, // Refresh every 20 ticks
+    (player1, player2) -> {
+        Vector3 pos1 = player1.position();
+        Vector3 pos2 = player2.position();
+        double distance = Math.sqrt(
+            Math.pow(pos1.x() - pos2.x(), 2) +
+            Math.pow(pos1.y() - pos2.y(), 2) +
+            Math.pow(pos1.z() - pos2.z(), 2)
+        );
+        return String.format("%.1f", distance);
+    }
+);
+
+System.out.println("Registered 3 custom placeholders");
+```
+
+### Using and Managing Placeholders
+
+Retrieve placeholder values and manage placeholder lifecycle.
+
+```java
+import net.momirealms.customnameplates.api.placeholder.Placeholder;
+import java.util.List;
+
+// Detect placeholders in a string
+String text = "Hello %player_name%, your health is %player_health%";
+List<String> detectedPlaceholders = placeholderManager.detectPlaceholders(text);
+System.out.println("Found placeholders: " + detectedPlaceholders);
+
+// Get a registered placeholder
+Placeholder placeholder = placeholderManager.getRegisteredPlaceholder("%player_health%");
+if (placeholder != null) {
+    System.out.println("Placeholder ID: " + placeholder.id());
+    int refreshInterval = placeholderManager.getRefreshInterval(placeholder.id());
+    System.out.println("Refresh interval: " + refreshInterval + " ticks");
+}
+
+// Get cached placeholder value for a player
+CNPlayer player = api.getPlayer(playerUUID);
+if (player != null && placeholder instanceof PlayerPlaceholder) {
+    String value = player.getCachedPlayerValue((PlayerPlaceholder) placeholder);
+    System.out.println("Cached value: " + value);
+}
+
+// Unregister a placeholder
+placeholderManager.unregisterPlaceholder("%custom_placeholder%");
+
+// Refresh all placeholders
+placeholderManager.refreshPlaceholders();
+```
+
+## Requirement System
+
+### Registering Custom Requirements
+
+Create conditional requirements for feature activation based on custom logic.
+
+```java
+import net.momirealms.customnameplates.api.requirement.RequirementManager;
+import net.momirealms.customnameplates.api.requirement.RequirementFactory;
+import net.momirealms.customnameplates.api.requirement.Requirement;
+import net.momirealms.customnameplates.api.CNPlayer;
+
+CustomNameplates plugin = api.plugin();
+RequirementManager requirementManager = plugin.getRequirementManager();
+
+// Create a custom requirement factory
+RequirementFactory permissionRequirement = (section) -> {
+    String permission = section.getString("permission");
+    return new Requirement() {
+        @Override
+        public boolean isMet(CNPlayer p1, CNPlayer p2) {
+            return p1.hasPermission(permission);
+        }
+
+        @Override
+        public String type() {
+            return "custom_permission";
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof Requirement other) {
+                return this.type().equals(other.type());
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return type().hashCode();
+        }
+    };
+};
+
+// Register the requirement factory
+boolean registered = requirementManager.registerRequirement(
+    permissionRequirement,
+    "custom_permission",
+    "has_permission"
+);
+
+if (registered) {
+    System.out.println("Custom requirement registered successfully");
+}
+
+// Check if a requirement type exists
+if (requirementManager.hasRequirement("custom_permission")) {
+    RequirementFactory factory = requirementManager.getRequirementFactory("custom_permission");
+    System.out.println("Factory found: " + (factory != null));
+}
+```
+
+### Using Requirements
+
+Parse requirements from configuration and check if players meet them.
+
+```java
+import dev.dejvokep.boostedyaml.block.implementation.Section;
+import net.momirealms.customnameplates.api.requirement.Requirement;
+
+// Parse requirements from YAML configuration section
+Section configSection = ConfigManager.getMainConfig().getSection("features.nameplate.requirements");
+if (configSection != null) {
+    Requirement[] requirements = requirementManager.parseRequirements(configSection);
+    System.out.println("Parsed " + requirements.length + " requirements");
+
+    // Check if a player meets the requirements
+    CNPlayer player = api.getPlayer(playerUUID);
+    if (player != null && player.isMet(requirements)) {
+        System.out.println("Player meets all requirements");
+    }
+
+    // Check relational requirements between two players
+    CNPlayer otherPlayer = api.getPlayer(otherPlayerUUID);
+    if (player != null && otherPlayer != null) {
+        if (player.isMet(otherPlayer, requirements)) {
+            System.out.println("Players meet relational requirements");
+        }
+    }
+}
+
+// Unregister a requirement
+requirementManager.unregisterRequirement("custom_permission");
+```
+
+## Storage Management
+
+### Working with Player Data Storage
+
+Interact with the storage system to save and load player data across multiple backends.
+
+```java
+import net.momirealms.customnameplates.api.storage.StorageManager;
+import net.momirealms.customnameplates.api.storage.data.PlayerData;
+import net.momirealms.customnameplates.api.storage.DataStorageProvider;
+
+CustomNameplates plugin = api.plugin();
+StorageManager storageManager = plugin.getStorageManager();
+
+// Get storage information
+String serverId = storageManager.serverID();
+boolean redisEnabled = storageManager.isRedisEnabled();
+System.out.println("Server ID: " + serverId);
+System.out.println("Redis enabled: " + redisEnabled);
+
+// Get the current data storage provider
+DataStorageProvider dataSource = storageManager.dataSource();
+
+// Convert player data to JSON
+UUID playerUUID = UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5");
+PlayerData playerData = new PlayerData(playerUUID);
+playerData.setNameplate("epic_nameplate");
+playerData.setBubble("custom_bubble");
+
+String json = storageManager.toJson(playerData);
+System.out.println("Player data as JSON: " + json);
+
+// Convert JSON back to player data
+PlayerData loadedData = storageManager.fromJson(playerUUID, json);
+System.out.println("Loaded nameplate: " + loadedData.nameplate());
+System.out.println("Loaded bubble: " + loadedData.bubble());
+
+// Convert to/from byte array for binary storage
+byte[] bytes = storageManager.toBytes(playerData);
+PlayerData fromBytes = storageManager.fromBytes(playerUUID, bytes);
+System.out.println("Data serialization successful");
+```
+
+## Event Handling
+
+### Listening to Plugin Events
+
+Subscribe to events like data loading and plugin reloading.
+
+```java
+import net.momirealms.customnameplates.api.event.DataLoadEvent;
+import net.momirealms.customnameplates.api.event.NameplatesReloadEvent;
+import net.momirealms.customnameplates.common.event.EventManager;
+import net.momirealms.customnameplates.api.storage.data.PlayerData;
+
+CustomNameplates plugin = api.plugin();
+EventManager eventManager = plugin.getEventManager();
+
+// Register a data load event listener
+eventManager.registerListener(DataLoadEvent.class, (event) -> {
+    PlayerData data = event.data();
+    System.out.println("Player data loaded for: " + data.uuid());
+    System.out.println("Nameplate: " + data.nameplate());
+    System.out.println("Bubble: " + data.bubble());
+
+    // Modify data if needed
+    if (data.nameplate() == null) {
+        data.setNameplate("default_nameplate");
+        System.out.println("Set default nameplate");
+    }
+});
+
+// Register a reload event listener
+eventManager.registerListener(NameplatesReloadEvent.class, (event) -> {
+    System.out.println("CustomNameplates plugin has been reloaded");
+    // Refresh custom placeholders or requirements
+    placeholderManager.refreshPlaceholders();
+});
+```
+
+## ActionBar Management
+
+### Controlling ActionBar Display
+
+Manage action bar control and prevent conflicts with other plugins.
+
+```java
+import net.momirealms.customnameplates.api.CNPlayer;
+
+CNPlayer player = api.getPlayer(playerUUID);
+if (player != null) {
+    // Acquire the action bar (prevent CustomNameplates from controlling it)
+    player.acquireActionBar("my_plugin_feature");
+    System.out.println("Action bar acquired for custom use");
+
+    // Display custom action bar content through your own methods
+    // ...
+
+    // Release the action bar (allow CustomNameplates to control it again)
+    player.releaseActionBar("my_plugin_feature");
+
+    // Check if CustomNameplates should control the action bar
+    if (player.shouldCNTakeOverActionBar()) {
+        System.out.println("CustomNameplates can now control the action bar");
+    }
+}
+```
+
+## Configuration Management
+
+### Loading and Accessing Configuration
+
+Work with YAML configuration files using the ConfigManager.
+
+```java
+import net.momirealms.customnameplates.api.ConfigManager;
+import dev.dejvokep.boostedyaml.YamlDocument;
+
+// Get the main configuration
+YamlDocument config = ConfigManager.getMainConfig();
+
+// Access configuration values
+boolean debugMode = ConfigManager.debug();
+boolean nameplateModule = ConfigManager.nameplateModule();
+boolean actionbarModule = ConfigManager.actionbarModule();
+String namespace = ConfigManager.namespace();
+String font = ConfigManager.font();
+
+System.out.println("Debug mode: " + debugMode);
+System.out.println("Namespace: " + namespace);
+System.out.println("Font: " + font);
+
+// Get specific values from config
+String forceLocale = config.getString("force-locale", "en_US");
+int refreshInterval = ConfigManager.defaultPlaceholderRefreshInterval();
+boolean legacySupport = config.getBoolean("other-settings.legacy-color-code-support", true);
+
+System.out.println("Locale: " + forceLocale);
+System.out.println("Default refresh interval: " + refreshInterval + " ticks");
+
+// Check module status
+if (ConfigManager.bubbleModule()) {
+    System.out.println("Bubble module is enabled");
+}
+
+if (ConfigManager.bossbarModule()) {
+    System.out.println("Boss bar module is enabled");
+}
+```
+
+Custom Nameplates provides a flexible and powerful platform for creating rich visual experiences in Minecraft servers. The plugin's modular architecture allows developers to easily extend functionality through custom placeholders, requirements, and feature integrations. Whether building simple nameplate displays or complex conditional systems with relational data between players, the API provides comprehensive tools for every use case.
+
+The plugin integrates seamlessly with popular Minecraft plugins and supports multiple storage backends, making it suitable for both small servers and large networks. Developers can leverage the event system to respond to data loading and plugin reloads, create custom requirements for conditional feature activation, and use the placeholder system to display dynamic content. The text rendering API enables precise control over visual presentation, including image embedding, text alignment, and width calculations, allowing for pixel-perfect designs that adapt to different fonts and display contexts.

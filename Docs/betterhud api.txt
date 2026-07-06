@@ -1,0 +1,545 @@
+# BetterHud
+
+BetterHud is a multiplatform server-side HUD implementation for Minecraft that allows server administrators and developers to create custom heads-up displays, popups, and compass markers without requiring client-side mods. The plugin automatically generates resource packs and supports displaying images (including PNG sequences), text, player heads, and animations. It works across Bukkit/Folia (1.20.4-1.21.11), Velocity (3.3-3.4), and Fabric server (1.21.11) platforms.
+
+The system is built on a manager-based architecture with extensive placeholder support through PlaceholderAPI integration, built-in placeholders, and custom variables. It provides a powerful trigger system for showing popups based on game events, supports conditional rendering with mathematical equations, and offers flexible configuration through YAML files. The plugin integrates with popular plugins like MMOCore, MythicMobs, Vault, WorldGuard, and Skript, making it highly extensible for custom server implementations.
+
+## API Access
+
+### Getting the BetterHud Instance
+
+Access the main BetterHud API instance to interact with all managers and functionality.
+
+```java
+import kr.toxicity.hud.api.BetterHud;
+import kr.toxicity.hud.api.BetterHudAPI;
+
+// Get the main instance
+BetterHud api = BetterHudAPI.inst();
+// Or using static method
+BetterHud api = BetterHud.getInstance();
+
+// Access managers
+PopupManager popupManager = api.getPopupManager();
+HudManager hudManager = api.getHudManager();
+PlayerManager playerManager = api.getPlayerManager();
+CompassManager compassManager = api.getCompassManager();
+PlaceholderManager placeholderManager = api.getPlaceholderManager();
+```
+
+### Plugin Reload
+
+Reload the plugin configuration and resources with optional flags.
+
+```java
+import kr.toxicity.hud.api.BetterHud;
+import kr.toxicity.hud.api.plugin.ReloadState;
+import kr.toxicity.hud.api.plugin.ReloadFlagType;
+
+BetterHud api = BetterHud.getInstance();
+
+// Basic reload
+ReloadState state = api.reload();
+if (state.isSuccess()) {
+    System.out.println("Reload successful!");
+} else {
+    System.out.println("Reload failed: " + state.getFailReason());
+}
+
+// Reload with custom flags
+ReloadState customState = api.reload(ReloadFlagType.FORCE);
+
+// Check if currently reloading
+if (api.isOnReload()) {
+    System.out.println("Plugin is currently reloading");
+}
+```
+
+## HUD Management
+
+### Managing Player HUDs
+
+Add, remove, and control HUD displays for players.
+
+```java
+import kr.toxicity.hud.api.manager.HudManager;
+import kr.toxicity.hud.api.manager.PlayerManager;
+import kr.toxicity.hud.api.hud.Hud;
+import kr.toxicity.hud.api.player.HudPlayer;
+import org.bukkit.entity.Player;
+
+BetterHud api = BetterHud.getInstance();
+HudManager hudManager = api.getHudManager();
+PlayerManager playerManager = api.getPlayerManager();
+
+// Get HUD by name
+Hud hud = hudManager.getHud("example_hud");
+if (hud != null) {
+    // Get HudPlayer wrapper
+    Player bukkitPlayer = ...; // Your Bukkit player
+    HudPlayer hudPlayer = playerManager.getHudPlayer(bukkitPlayer.getUniqueId());
+
+    if (hudPlayer != null) {
+        // Create and show HUD to player
+        HudComponentSupplier<Hud> renderer = hud.createRenderer(hudPlayer);
+        hudPlayer.getHudObjects().put(hud.getIdentifier(), renderer);
+
+        // Enable/disable HUD updates
+        hudPlayer.setHudEnabled(true);
+
+        // Get all active HUDs for player
+        Set<Hud> activeHuds = hudPlayer.getHuds();
+    }
+}
+
+// List all available HUDs
+Set<String> allHudNames = hudManager.getAllNames();
+Set<Hud> allHuds = hudManager.getAllHuds();
+```
+
+### Creating HUD Configuration
+
+Define HUD layouts in YAML configuration files.
+
+```yaml
+# default-hud.yml
+health_display:
+  layouts:
+    1:
+      name: health_bar
+      x: 50
+      y: 100
+    2:
+      name: health_text
+      x: 50
+      y: 95
+
+# Coordinates are percentages of screen (0-100)
+# x: 50 = center horizontally
+# y: 100 = bottom of screen
+```
+
+## Popup System
+
+### Showing Popups to Players
+
+Display temporary popup messages with custom variables and triggers.
+
+```java
+import kr.toxicity.hud.api.manager.PopupManager;
+import kr.toxicity.hud.api.popup.Popup;
+import kr.toxicity.hud.api.player.HudPlayer;
+import kr.toxicity.hud.api.update.UpdateEvent;
+import java.util.HashMap;
+import java.util.Map;
+
+BetterHud api = BetterHud.getInstance();
+PopupManager popupManager = api.getPopupManager();
+
+// Get popup by name
+Popup popup = popupManager.getPopup("damage_indicator");
+if (popup != null) {
+    HudPlayer hudPlayer = ...; // Get player
+
+    // Create custom variables for the popup
+    Map<String, String> variables = new HashMap<>();
+    variables.put("damage", "150");
+    variables.put("entity_name", "Zombie");
+
+    // Create update event with variables
+    UpdateEvent event = UpdateEvent.of(variables);
+
+    // Show popup to player
+    popup.show(event, hudPlayer);
+
+    // Hide popup from player
+    popup.hide(hudPlayer);
+}
+
+// List all popups
+Set<String> popupNames = popupManager.getAllNames();
+Set<Popup> allPopups = popupManager.getAllPopups();
+```
+
+### Popup Configuration with Triggers
+
+Create popups that respond to game events automatically.
+
+```yaml
+# monster_health.yml
+monster_health:
+  triggers:
+    1:
+      class: entity_attack
+  group: mob_group
+  unique: true        # Prevent duplicates
+  queue: true         # Queue overflow popups
+  sort: first         # Stack or queue fashion
+  duration: 60        # Duration in ticks (0 = infinite)
+  key-mapping: true   # Use unique keys per entity
+  x: 10
+  y: 35
+  move:
+    duration: 3       # Max popups on screen
+    pixel:
+      x-equation: 0
+      y-equation: 20t # Offset 20 pixels per popup
+  layouts:
+    1:
+      name: monster_health
+  conditions:
+    1:
+      first: entity_health_percentage
+      second: 0
+      operation: ">"
+```
+
+### Custom Popup Event (Bukkit)
+
+Trigger custom popup events from your plugin.
+
+```java
+import kr.toxicity.hud.api.bukkit.event.CustomPopupEvent;
+import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
+
+// Create custom popup event
+Player player = ...;
+CustomPopupEvent event = new CustomPopupEvent(player, "my_custom_popup");
+
+// Add custom variables
+event.getVariables().put("score", "100");
+event.getVariables().put("message", "Level Up!");
+
+// Call the event
+Bukkit.getPluginManager().callEvent(event);
+
+// The popup system will automatically process this event
+// if a popup named "my_custom_popup" exists and has matching triggers
+```
+
+## Compass and Pointer System
+
+### Managing Compass Pointers
+
+Add waypoints and markers to player compasses.
+
+```java
+import kr.toxicity.hud.api.manager.CompassManager;
+import kr.toxicity.hud.api.compass.Compass;
+import kr.toxicity.hud.api.player.HudPlayer;
+import kr.toxicity.hud.api.player.PointedLocation;
+import kr.toxicity.hud.api.adapter.LocationWrapper;
+
+BetterHud api = BetterHud.getInstance();
+CompassManager compassManager = api.getCompassManager();
+
+// Get compass
+Compass compass = compassManager.getCompass("default_compass");
+if (compass != null) {
+    HudPlayer hudPlayer = ...;
+
+    // Add compass to player
+    HudComponentSupplier<Compass> renderer = compass.createRenderer(hudPlayer);
+    hudPlayer.getHudObjects().put(compass.getIdentifier(), renderer);
+}
+
+// Add pointer/marker to player's compass
+HudPlayer hudPlayer = ...;
+LocationWrapper targetLocation = ...; // Your location
+PointedLocation pointer = new PointedLocation(
+    "spawn_point",           // Name
+    targetLocation,          // Location
+    "spawn_icon"            // Icon identifier (optional)
+);
+hudPlayer.pointers().add(pointer);
+
+// Remove pointer
+hudPlayer.pointers().removeIf(p -> p.getName().equals("spawn_point"));
+
+// Get all pointers
+Set<PointedLocation> pointers = hudPlayer.getPointedLocation();
+```
+
+### Using Skript for Pointers
+
+Add and remove compass pointers using Skript integration.
+
+```
+command /pointadd:
+    trigger:
+        # Add compass marker
+        point add location at 0, 0, 0 in world "world" named "test1" to player
+        point add location at 10, 0, 0 in world "world" named "test2" with icon "other" to player
+
+command /pointremove:
+    trigger:
+        # Remove compass marker
+        point remove "test1" to player
+        point remove "test2" to player
+```
+
+## Placeholder System
+
+### Registering Custom Placeholders
+
+Define custom placeholders for use in HUDs and popups.
+
+```yaml
+# placeholder/custom.yml
+player_count:
+  variable: online
+  placeholder: "%server_online%"
+  update: 20        # Update every 20 ticks
+  async: false      # Set true for async placeholders
+
+player_name:
+  variable: name
+  placeholder: "%player_name%"
+  update: 100
+```
+
+### Using Placeholders in Layouts
+
+Reference placeholders in your text displays.
+
+```yaml
+# Text using sync placeholder
+text:
+  content: "Online: [string:online]"
+
+# Text using async PAPI placeholder
+text:
+  content: "Balance: [papi:vault_eco_balance]"
+
+# Text using built-in placeholder
+text:
+  content: "Health: [number:health]/[number:max_health]"
+```
+
+### Built-in Placeholder Examples
+
+Access player and game data through built-in placeholders.
+
+```yaml
+# Number placeholders (Bukkit)
+health: "[number:health]"
+health_percentage: "[number:health_percentage]"
+max_health: "[number:max_health]"
+armor: "[number:armor]"
+level: "[number:level]"
+hotbar_slot: "[number:hotbar_slot]"
+potion_duration: "[number:potion_effect_duration:speed]"
+item_count: "[number:total_amount:diamond]"
+
+# String placeholders
+player_name: "[string:name]"
+world: "[string:world]"
+gamemode: "[string:gamemode]"
+
+# Boolean placeholders
+is_dead: "[boolean:dead]"
+is_burning: "[boolean:burning]"
+has_permission: "[boolean:has_permission:admin.use]"
+```
+
+## Player Data Management
+
+### Accessing Player Information
+
+Work with HudPlayer objects to manage player-specific data.
+
+```java
+import kr.toxicity.hud.api.manager.PlayerManager;
+import kr.toxicity.hud.api.player.HudPlayer;
+import java.util.UUID;
+import java.util.Map;
+
+BetterHud api = BetterHud.getInstance();
+PlayerManager playerManager = api.getPlayerManager();
+
+// Get HudPlayer by UUID
+UUID playerUuid = ...;
+HudPlayer hudPlayer = playerManager.getHudPlayer(playerUuid);
+
+if (hudPlayer != null) {
+    // Get player name
+    String name = hudPlayer.name();
+
+    // Get player location
+    LocationWrapper location = hudPlayer.location();
+    WorldWrapper world = hudPlayer.world();
+
+    // Get current tick count
+    long tick = hudPlayer.getTick();
+
+    // Manage local variables
+    Map<String, String> variables = hudPlayer.getVariableMap();
+    variables.put("custom_score", "100");
+    String score = variables.get("custom_score");
+
+    // Control HUD updates
+    hudPlayer.setHudEnabled(false); // Pause updates
+    hudPlayer.update();             // Manual update
+    hudPlayer.reload();             // Reload player data
+
+    // Save player data to database
+    hudPlayer.save();
+}
+```
+
+## Event Handling (Bukkit)
+
+### Listening to BetterHud Events
+
+React to plugin events in your Bukkit plugin.
+
+```java
+import kr.toxicity.hud.api.bukkit.event.*;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class MyHudListener implements Listener {
+
+    @EventHandler
+    public void onHudPlayerJoin(HudPlayerJoinEvent event) {
+        HudPlayer hudPlayer = event.getHudPlayer();
+        Player player = event.getPlayer();
+        // Initialize custom HUD elements for player
+    }
+
+    @EventHandler
+    public void onHudUpdate(HudUpdateEvent event) {
+        HudPlayer hudPlayer = event.getHudPlayer();
+        // Called periodically when HUD updates
+        // Use for custom calculations or data updates
+    }
+
+    @EventHandler
+    public void onPluginReload(PluginReloadedEvent event) {
+        ReloadState state = event.getState();
+        if (state.isSuccess()) {
+            // Handle successful reload
+        }
+    }
+
+    @EventHandler
+    public void onPluginReloadStart(PluginReloadStartEvent event) {
+        // Called before reload begins
+        // Cleanup or prepare for reload
+    }
+
+    @EventHandler
+    public void onCustomPopup(CustomPopupEvent event) {
+        String popupName = event.getName();
+        Map<String, String> variables = event.getVariables();
+        Player player = event.getPlayer();
+        // Handle custom popup event
+    }
+}
+```
+
+## Commands
+
+### Plugin Commands
+
+Control BetterHud through in-game commands.
+
+```bash
+# View command help
+/hud help [page]
+
+# Reload plugin
+/hud reload
+
+# Toggle HUD on/off for player
+/hud turn on
+/hud turn off
+
+# Add specific HUD to player
+/hud hud add <player> <hud_name>
+
+# Remove specific HUD from player
+/hud hud remove <player> <hud_name>
+
+# Show popup to player (requires duration set in config)
+/hud popup show <player> <popup_name>
+
+# Hide popup from player
+/hud popup hide <player> <popup_name>
+
+# Add popup to player (permanent)
+/hud popup add <player> <popup_name>
+
+# Remove popup from player
+/hud popup remove <player> <popup_name>
+
+# Add compass to player
+/hud compass add <player> <compass_name>
+
+# Remove compass from player
+/hud compass remove <player> <compass_name>
+
+# Set compass pointer
+/hud pointer set <player> <name> <world> <x,y,z> [icon]
+
+# Clear compass pointer
+/hud pointer clear <player> <name>
+```
+
+## Gradle Dependency Configuration
+
+### Bukkit Plugin Dependency
+
+Add BetterHud API to your Bukkit plugin project.
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly("io.github.toxicity188:BetterHud-standard-api:1.0.0")
+    compileOnly("io.github.toxicity188:BetterHud-bukkit-api:1.0.0")
+    compileOnly("io.github.toxicity188:BetterCommand:1.0.0")
+}
+```
+
+### Fabric Mod Dependency
+
+Add BetterHud API to your Fabric server-side mod.
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly("io.github.toxicity188:BetterHud-standard-api:1.0.0")
+    modCompileOnly("io.github.toxicity188:BetterHud-fabric-api:1.0.0")
+    compileOnly("io.github.toxicity188:BetterCommand:1.0.0")
+}
+```
+
+### JitPack Alternative
+
+Use JitPack repository for development builds.
+
+```kotlin
+repositories {
+    mavenCentral()
+    maven("https://jitpack.io")
+}
+
+dependencies {
+    compileOnly("net.kyori:adventure-api:4.26.1")
+    compileOnly("com.github.toxicity188:BetterHud:VERSION")
+    compileOnly("com.github.toxicity188:BetterCommand:VERSION")
+}
+```
+
+## Summary
+
+BetterHud provides a comprehensive server-side HUD solution for Minecraft that eliminates the need for client-side mods while delivering rich visual customization. The main use cases include creating custom health and status bars, implementing damage indicators and combat popups, building waypoint and navigation systems, displaying dynamic server information and statistics, creating RPG-style skill bars and buff indicators, and showing player-specific information overlays. The plugin excels at event-driven displays through its trigger system, which can show popups based on entity attacks, player deaths, combat events, or custom plugin events.
+
+Integration patterns follow a manager-based architecture where developers access functionality through specialized managers (PopupManager, HudManager, PlayerManager, etc.) obtained from the main BetterHud instance. The system supports three primary integration approaches: direct Java API usage for programmatic control, Bukkit event listening for reactive behavior, and YAML configuration for declarative HUD definitions. Cross-plugin integration is facilitated through PlaceholderAPI support, Skript syntax extensions, custom event dispatching, and database persistence. The plugin automatically handles resource pack generation, client synchronization, and multi-version compatibility across supported platforms, making it an ideal choice for servers requiring sophisticated UI customization without client dependencies.

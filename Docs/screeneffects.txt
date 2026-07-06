@@ -1,0 +1,220 @@
+# ScreenEffects
+
+ScreenEffects is a Minecraft datapack and resource pack library that enables developers to display animated screen overlays to players. Built by Trplnr, this library provides a complete workflow for creating, building, registering, and playing frame-based animations that appear on the player's screen using Minecraft's title display system. The library supports multiple Minecraft versions (1.21.1 through 1.21.5) through overlay compatibility layers.
+
+The core functionality revolves around converting vertical spritesheets into individual font frames that the datapack can cycle through to create smooth animations. Each screen effect is defined by its animation path, frame count, playback speed (ticks per frame), and optional callbacks that execute commands at specific frames. The system handles player state tracking, rejoin detection, and automatic cleanup of running effects.
+
+## Building Screen Effects from Spritesheets
+
+The `buildScreenEffects.js` utility converts vertical PNG spritesheets into individual animation frames and corresponding font JSON files. It uses ffmpeg to crop each frame and generates the required Minecraft resource pack structure.
+
+```javascript
+// Configure the builder in buildScreenEffects.js
+const NAMESPACE = "mynamespace";  // Your resource pack namespace
+const debugMode = false;          // Enable verbose logging
+const prettyPrintFontFiles = false;  // Format JSON output
+const showFFMPEGLogs = false;     // Show ffmpeg output
+
+// Run from terminal inside the screen_effects folder
+// Build all spritesheets:
+// deno run --allow-all ./buildScreenEffects.js
+
+// Build a single spritesheet:
+// deno run --allow-all ./buildScreenEffects.js myanimation.png
+
+// Output structure after building:
+// ../assets/{NAMESPACE}/font/scrfx/myanimation0.json
+// ../assets/{NAMESPACE}/font/scrfx/myanimation1.json
+// ../assets/{NAMESPACE}/textures/font/scrfx/myanimation0.png
+// ../assets/{NAMESPACE}/textures/font/scrfx/myanimation1.png
+```
+
+## Registering Screen Effects as a Group
+
+Register multiple screen effects at once by storing them in a list and calling `scrfx:api/register_screen_effect/register_group`. This is the recommended approach for registering your animations.
+
+```mcfunction
+# Store screen effect definitions in your namespace's storage
+data modify storage mynamespace:scrfx_data screen_effects set value [ \
+    { \
+        name: "mynamespace:toast_notification", \
+        tps: 1, \
+        frame_count: 31, \
+        path: "mynamespace:scrfx/toastanimation" \
+    }, \
+    { \
+        name: "mynamespace:screen_transition", \
+        tps: 1, \
+        frame_count: 69, \
+        path: "mynamespace:scrfx/transitionanimation", \
+        callbacks: { \
+            "26": "say Screen is fully covered", \
+            "50": "function mynamespace:on_transition_complete" \
+        } \
+    }, \
+    { \
+        name: "mynamespace:achievement_popup", \
+        tps: 2, \
+        frame_count: 46, \
+        path: "mynamespace:scrfx/achievementanimation" \
+    } \
+]
+
+# Register all screen effects from the storage path
+function scrfx:api/register_screen_effect/register_group {storage: "mynamespace:scrfx_data", path: "screen_effects"}
+```
+
+## Registering a Single Screen Effect Definition
+
+Register individual screen effects using `scrfx:api/register_screen_effect/register_definition` when you need to add a single animation without batch registration.
+
+```mcfunction
+# Store a single screen effect definition
+data modify storage mynamespace:scrfx_data single_effect set value { \
+    name: "mynamespace:warning_flash", \
+    tps: 1, \
+    frame_count: 15, \
+    path: "mynamespace:scrfx/warningflash" \
+}
+
+# Register the single definition
+function scrfx:api/register_screen_effect/register_definition {storage: "mynamespace:scrfx_data", path: "single_effect"}
+```
+
+## Playing Screen Effects on Players
+
+Play a registered screen effect by setting the effect ID in `scrfx:in` storage and calling `scrfx:play` while executed as the target player.
+
+```mcfunction
+# Play screen effect on a specific player
+data modify storage scrfx:in id set value "mynamespace:toast_notification"
+execute as @p run function scrfx:play
+
+# Play screen effect on all players
+data modify storage scrfx:in id set value "mynamespace:screen_transition"
+execute as @a run function scrfx:play
+
+# Play screen effect on players with a specific tag
+data modify storage scrfx:in id set value "mynamespace:achievement_popup"
+execute as @a[tag=show_achievement] run function scrfx:play
+
+# Play screen effect on the nearest player within 10 blocks
+data modify storage scrfx:in id set value "mynamespace:warning_flash"
+execute as @p[distance=..10] run function scrfx:play
+```
+
+## Screen Effect Schema Definition
+
+Each screen effect follows a specific schema with required and optional properties that control animation behavior and frame callbacks.
+
+```typescript
+// Screen Effect Definition Schema
+{
+    /**
+     * Unique identifier for the screen effect, preferably namespaced
+     * Format: "namespace:effect_name"
+     */
+    name: <resource_location>,
+
+    /**
+     * Ticks per frame - controls playback speed
+     * 1 = fastest (20 fps), 2 = 10 fps, 20 = 1 fps
+     * Must be greater than 0
+     */
+    tps: <int>,
+
+    /**
+     * Total number of frames in the animation
+     * Must match the actual frame count from the spritesheet
+     */
+    frame_count: <int>,
+
+    /**
+     * Font resource location path without the frame number suffix
+     * Points to: assets/{namespace}/font/scrfx/{path}{frame_number}.json
+     */
+    path: <resource_location>,
+
+    /**
+     * Optional: Commands to execute at specific frame numbers
+     * Keys are frame numbers as strings, values are mcfunction commands
+     */
+    callbacks?: {
+        "<frame_number>": "<command>",
+        "<frame_number>": "<command>"
+    }
+}
+
+// Example with all properties:
+// {
+//     name: "mypack:explosion_effect",
+//     tps: 1,
+//     frame_count: 24,
+//     path: "mypack:scrfx/explosion",
+//     callbacks: {
+//         "0": "playsound minecraft:entity.generic.explode master @s",
+//         "12": "particle minecraft:explosion ~ ~1 ~ 1 1 1 0.1 10"
+//     }
+// }
+```
+
+## Purging All Running Screen Effects
+
+Clear all running screen effects from all players using the purge function. Useful for cleanup during datapack reload or when effects need to be forcibly stopped.
+
+```mcfunction
+# Stop all running screen effects on all players
+function scrfx:purge_running_screen_effects
+
+# Example: Clean up before unloading your datapack
+function scrfx:purge_running_screen_effects
+say All screen effects have been stopped
+```
+
+## Complete Integration Example
+
+Full workflow example showing datapack setup with load function, screen effect registration, and trigger command.
+
+```mcfunction
+# In your load function (e.g., mynamespace:load)
+# Register with minecraft:load function tag
+
+# Define all your screen effects
+data modify storage mynamespace:scrfx_data screen_effects set value [ \
+    { \
+        name: "mynamespace:level_complete", \
+        tps: 1, \
+        frame_count: 60, \
+        path: "mynamespace:scrfx/levelcomplete", \
+        callbacks: { \
+            "30": "playsound minecraft:ui.toast.challenge_complete master @s ~ ~ ~ 1 1", \
+            "59": "function mynamespace:after_level_complete" \
+        } \
+    }, \
+    { \
+        name: "mynamespace:damage_vignette", \
+        tps: 2, \
+        frame_count: 10, \
+        path: "mynamespace:scrfx/damagevignette" \
+    } \
+]
+
+# Register the screen effects group
+function scrfx:api/register_screen_effect/register_group {storage: "mynamespace:scrfx_data", path: "screen_effects"}
+
+# ---
+
+# Trigger function example (mynamespace:show_level_complete)
+data modify storage scrfx:in id set value "mynamespace:level_complete"
+execute as @s run function scrfx:play
+
+# Trigger on damage example (called from advancement reward or custom damage detection)
+data modify storage scrfx:in id set value "mynamespace:damage_vignette"
+execute as @s run function scrfx:play
+```
+
+## Summary
+
+ScreenEffects provides a streamlined solution for Minecraft datapack developers who want to add visual feedback through animated screen overlays. The primary use cases include displaying notifications and toasts, creating screen transitions between game states, showing achievement or progress popups, adding visual effects for damage or status changes, and building immersive cutscene elements. The callback system enables synchronizing game logic with animation frames, making it ideal for triggered events and timed sequences.
+
+Integration follows a straightforward pattern: create animations as vertical spritesheets, run the Deno build script to generate font assets, register screen effects during datapack load using the registration API, and trigger animations by setting the effect ID and calling the play function on target players. The library handles all internal state management including player tracking, frame cycling, and automatic cleanup on player rejoin. For resource pack distribution, include both the generated font JSON files and texture frames alongside the ScreenEffects datapack.

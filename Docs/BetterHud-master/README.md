@@ -1,0 +1,103 @@
+<div align="center">  
+
+![-0001-export](https://github.com/toxicity188/BetterHud/assets/114675706/ccbf4bd3-9133-44ee-b277-985eae4349ae)
+
+Welcome to BetterHud!
+
+[SpigotMC](https://www.spigotmc.org/resources/115559/) | [Hangar](https://hangar.papermc.io/toxicity188/BetterHud) | [Modrinth](https://modrinth.com/plugin/betterhud2) | [Github](https://github.com/toxicity188/BetterHud)
+
+[![GitHub Release](https://img.shields.io/github/v/release/toxicity188/BetterHud?display_name=release&style=for-the-badge&logo=kotlin)](https://github.com/toxicity188/BetterHud/releases/latest)
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/rePyFESDbk)
+[![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/toxicity188/BetterHud?style=for-the-badge&logo=github)](https://github.com/toxicity188/BetterHud/issues)
+[![Static Badge](https://img.shields.io/badge/WIKI-blue?style=for-the-badge)](https://github.com/toxicity188/BetterHud/wiki)
+[![CodeFactor](https://www.codefactor.io/repository/github/toxicity188/betterhud/badge/master?style=for-the-badge)](https://www.codefactor.io/repository/github/toxicity188/betterhud/overview/master)
+
+</div>
+
+### Multiplatform server-side HUD implementation of Minecraft
+This project implements a server-side HUD.
+
+- Supports auto-generating resource pack.
+- Supports display image(include png sequence), text, head.
+- Supports animation.
+
+### Platform
+- Bukkit(with Folia) 1.21–26.1.x
+- Velocity 3.3-3.5
+- Fabric server 26.1.x
+
+### Library
+- [kotlin stdlib](https://github.com/JetBrains/kotlin): Implements better functional programming.
+- [adventure](https://github.com/KyoriPowered/adventure): Implements multi-platform component.
+- [bstats](https://bstats.org/getting-started/include-metrics): Implements metrics.
+- [exp4j](https://github.com/fasseg/exp4j): Implements equation.
+- [snakeyaml](https://github.com/snakeyaml/snakeyaml): Implements yaml parser.
+- [gson](https://github.com/google/gson): Implements json parser/writer.
+- [better command](https://github.com/toxicity188/BetterCommand): Implements multi-platform supporting command.
+- [expiring map](https://github.com/jhalterman/expiringmap): Implements cache map.
+- [HikariCP](https://github.com/brettwooldridge/HikariCP): Implements comfortable DB handling.
+- [mysql-connector-j](https://github.com/mysql/mysql-connector-j): Implements MySQL connector.
+- [semver4j](https://github.com/semver4j/semver4j): Implements semver parser and comparator. 
+
+
+### Dependency
+- Bukkit: No
+- Velocity: No
+- Fabric server: [Fabric API](https://modrinth.com/mod/fabric-api)
+
+### Build
+Requires Java 25 Eclipse Adoptium.
+
+- Build all available jar: ./gradlew build  
+- Build Bukkit plugin: ./gradlew pluginJar
+- Build Velocity plugin: ./gradlew velocityJar
+- Build Fabric server side mod: ./gradlew fabricJar  
+- Build source code jar: ./gradlew sourcesJar  
+- Build dokka-based docs jar: ./gradlew javadocJar
+
+### API
+[Bukkit example plugin](https://github.com/toxicity188/BetterHud-MMOCore)  
+![Maven Central Version](https://img.shields.io/maven-central/v/io.github.toxicity188/BetterHud-bukkit-api) (BetterHud for Bukkit)
+``` kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly("io.github.toxicity188:BetterHud-bukkit-api:VERSION") //Bukkit api
+}
+```
+
+[Fabric example mod](https://github.com/toxicity188/betterhud-fabric-example)  
+![Maven Central Version](https://img.shields.io/maven-central/v/io.github.toxicity188/BetterHud-mod-api) (BetterHud for Fabric)
+``` kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly("io.github.toxicity188:BetterHud-mod-api:VERSION") //Platform api
+}
+```
+
+### Use BetterHud with Skript
+[Go to download Skript](https://github.com/SkriptLang/Skript/releases)
+```
+command /pointadd:
+    trigger:
+        #compass marker add
+        point add location at 0, 0, 0 in world "world" named "test1" to player
+        point add location at 10, 0, 0 in world "world" named "test2" with icon "other" to player
+
+command /pointremove:
+    trigger:
+        #compass marker remove
+        point remove "test1" to player
+        point remove "test2" to player
+
+command /popup:
+    trigger:
+        #show popup with custom event
+        set {_o::rand} to random integer between 1 to 100
+        show popup "test_popup" to player with variable of {_o::*}
+```

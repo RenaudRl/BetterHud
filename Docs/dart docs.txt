@@ -1,0 +1,611 @@
+# Dart Web Interop Library
+
+## Introduction
+
+This project provides a comprehensive Dart ecosystem for JavaScript interoperability and browser API access. It consists of three main packages: `package:web` for lightweight browser API bindings, `package:js_interop` for utility functions enhancing Dart's JS interop capabilities, and `web_generator` for generating Dart interfaces from TypeScript declaration files and Web IDL definitions. The packages are built around Dart's modern JS interop features and are designed to support both JavaScript and WebAssembly compilation targets.
+
+The project serves as the long-term replacement for `dart:html` and related Dart SDK libraries, offering zero-overhead bindings generated from Web IDL specifications and TypeScript declarations. All browser APIs are exposed through extension types that provide type-safe access to web platform features while maintaining JavaScript semantics. The packages enable seamless conversion between Dart and JavaScript types, comprehensive DOM manipulation, and access to over 180 different web APIs including WebGL, WebRTC, Service Workers, and modern CSS features.
+
+## API Documentation
+
+### Querying and Manipulating DOM Elements
+
+Access and modify DOM elements using the global `document` object and element properties.
+
+```dart
+import 'package:web/web.dart';
+
+void main() {
+  // Query a single element
+  final div = document.querySelector('div')!;
+
+  // Update text content
+  div.textContent = 'Text set at ${DateTime.now()}';
+
+  // Query multiple elements
+  final paragraphs = document.querySelectorAll('p');
+  for (var i = 0; i < paragraphs.length; i++) {
+    final p = paragraphs.item(i);
+    p?.textContent = 'Paragraph ${i + 1}';
+  }
+
+  // Create and append new elements
+  final newDiv = document.createElement('div');
+  newDiv.id = 'dynamic-content';
+  newDiv.className = 'container';
+  document.body?.appendChild(newDiv);
+}
+```
+
+### Converting Dart DateTime to JavaScript Date
+
+Convert between Dart `DateTime` and JavaScript `JSDate` objects for interop scenarios.
+
+```dart
+import 'dart:js_interop';
+import 'package:js_interop/js_interop.dart';
+
+void main() {
+  // Convert Dart DateTime to JSDate
+  final dartNow = DateTime.now();
+  final jsDate = dartNow.toJS;
+
+  // Create JSDate from components (local timezone)
+  final localDate = JSDate.localDate(2025, 11, 15, 14, 30, 0);
+
+  // Create JSDate from components (UTC timezone)
+  final utcDate = JSDate.utcDate(2025, 11, 15, 14, 30, 0);
+
+  // Create JSDate from milliseconds since epoch
+  final epochDate = JSDate.fromMillisecondsSinceEpoch(1734270600000);
+
+  // Convert JSDate back to Dart DateTime (local)
+  final dartLocal = jsDate.toDart;
+  print('Local: $dartLocal');
+
+  // Convert JSDate back to Dart DateTime (UTC)
+  final dartUtc = jsDate.toDartUtc;
+  print('UTC: $dartUtc');
+
+  // Access JSDate properties
+  print('Year: ${localDate.fullYear}');
+  print('Month: ${localDate.month}');  // 0-indexed (0 = January)
+  print('Day: ${localDate.date}');
+  print('Hours: ${localDate.hours}');
+
+  // Modify JSDate properties
+  localDate.fullYear = 2026;
+  localDate.month = 5;  // June (0-indexed)
+  localDate.date = 21;
+}
+```
+
+### Working with JavaScript Records (Object Maps)
+
+Use `JSRecord` to interact with JavaScript objects as map-like data structures.
+
+```dart
+import 'dart:js_interop';
+import 'package:js_interop/js_interop.dart';
+
+void main() {
+  // Create JSRecord from Dart Map
+  final record = {'name': 'Alice'.toJS, 'age': 30.toJS}.toJSRecord;
+
+  // Alternative creation methods
+  final emptyRecord = JSRecord<JSAny?>();
+  final fromMap = JSRecord.ofMap({'key': 'value'.toJS});
+  final fromEntries = JSRecord.fromEntries([
+    MapEntry('foo', 1.toJS),
+    MapEntry('bar', 2.toJS),
+  ]);
+  final fromPairs = JSRecord.fromPairs([
+    ('x', 10.toJS),
+    ('y', 20.toJS),
+  ]);
+
+  // Access values
+  final name = record['name'];  // Returns JSAny?
+  print('Name: ${name}');
+
+  // Set values
+  record['email'] = 'alice@example.com'.toJS;
+  record['active'] = true.toJS;
+
+  // Check keys and values
+  if (record.containsKey('age')) {
+    print('Age is present');
+  }
+  if (record.containsValue('Alice'.toJS)) {
+    print('Alice found in values');
+  }
+
+  // Iterate over entries
+  for (var entry in record.entries) {
+    print('${entry.key}: ${entry.value}');
+  }
+
+  // Iterate over pairs (alternative to entries)
+  for (var (key, value) in record.pairs) {
+    print('$key = $value');
+  }
+
+  // Add multiple entries
+  record.addAll({'city': 'NYC'.toJS, 'country': 'USA'.toJS});
+
+  // Update values conditionally
+  record.putIfAbsent('age', () => 25.toJS);  // Won't change (key exists)
+  record.putIfAbsent('score', () => 100.toJS);  // Adds new entry
+
+  // Transform all values
+  record.updateAll((key, value) => '$value-modified'.toJS);
+
+  // Remove entries
+  record.remove('age');
+  record.removeWhere((key, value) => key.startsWith('temp'));
+
+  // Convert back to Dart Map
+  final dartMap = record.toDart;
+  print('As Dart Map: $dartMap');
+
+  // Clear all entries
+  record.clear();
+  print('Empty: ${record.isEmpty}');
+}
+```
+
+### Accessing JavaScript Object Properties Dynamically
+
+Use unsafe extensions when property names are not known at compile time.
+
+```dart
+import 'dart:js_interop';
+import 'package:js_interop/unsafe.dart';
+
+void main() {
+  // Create a JavaScript object
+  final obj = JSObject();
+
+  // Set properties dynamically
+  obj.setProperty('username'.toJS, 'bob'.toJS);
+  obj.setProperty('level'.toJS, 42.toJS);
+  obj.setProperty('active'.toJS, true.toJS);
+
+  // Get properties dynamically
+  final username = obj.getProperty<JSString>('username'.toJS);
+  print('Username: ${username.toDart}');
+
+  // Get all keys
+  final keys = obj.keys;  // Returns List<JSString>
+  for (var key in keys) {
+    print('Key: ${key.toDart}');
+  }
+
+  // Get all values
+  final values = obj.values;  // Returns List<JSAny?>
+  print('Values: $values');
+
+  // Get key-value entries
+  final entries = obj.entries;  // Returns List<(String, JSAny?)>
+  for (var (key, value) in entries) {
+    print('$key: $value');
+  }
+
+  // Check if property exists
+  if (obj.hasOwnProperty('username'.toJS)) {
+    print('Has username property');
+  }
+
+  // Get all property names (including non-enumerable)
+  final allProps = obj.ownPropertyNames;
+  print('All properties: $allProps');
+
+  // Get symbol properties
+  final symbols = obj.ownPropertySymbols;
+  print('Symbol properties: $symbols');
+
+  // Freeze object (make immutable)
+  obj.freeze();
+
+  // Assign properties from other objects
+  final source1 = JSObject();
+  source1.setProperty('prop1'.toJS, 'value1'.toJS);
+  final source2 = JSObject();
+  source2.setProperty('prop2'.toJS, 'value2'.toJS);
+  obj.assign(source1, source2);
+}
+```
+
+### Parsing and Manipulating JavaScript Dates
+
+Work with JavaScript Date static methods and instance formatting.
+
+```dart
+import 'dart:js_interop';
+import 'package:js_interop/js_interop.dart';
+
+void main() {
+  // Get current timestamp as milliseconds
+  final nowMs = JSDate.nowAsMillisecondsSinceEpoch();
+  print('Current time (ms): $nowMs');
+
+  // Parse date string to milliseconds
+  final parsedMs = JSDate.parseAsMillisecondsSinceEpoch('Dec 25, 2025');
+  print('Parsed date (ms): $parsedMs');
+
+  // Parse date string to JSDate object
+  final christmas = JSDate.parseAsDate('2025-12-25T00:00:00Z');
+
+  // Create date from UTC components
+  final utcMs = JSDate.utcAsMillisecondsSinceEpoch(2025, 11, 25, 0, 0, 0);
+  print('UTC milliseconds: $utcMs');
+
+  // Format dates as strings
+  final date = JSDate.nowAsDate();
+  print('Date string: ${date.toDateString()}');  // "Fri Jan 10 2026"
+  print('ISO string: ${date.toIsoString()}');    // "2026-01-10T12:30:45.123Z"
+  print('Time string: ${date.toTimeString()}');  // "12:30:45 GMT+0000"
+  print('UTC string: ${date.toUtcString()}');    // "Fri, 10 Jan 2026 12:30:45 GMT"
+
+  // Access UTC components
+  print('UTC Year: ${date.utcFullYear}');
+  print('UTC Month: ${date.utcMonth}');
+  print('UTC Date: ${date.utcDate}');
+  print('UTC Hours: ${date.utcHours}');
+  print('UTC Minutes: ${date.utcMinutes}');
+  print('UTC Seconds: ${date.utcSeconds}');
+  print('UTC Milliseconds: ${date.utcMilliseconds}');
+
+  // Modify UTC components
+  date.utcFullYear = 2027;
+  date.utcMonth = 6;  // July
+  date.utcDate = 4;
+
+  // Get timezone offset in minutes
+  final offset = date.timezoneOffset;
+  print('Timezone offset: $offset minutes');
+
+  // Get day of week (0 = Sunday, 6 = Saturday)
+  print('Day of week: ${date.day}');
+
+  // Get time as milliseconds since epoch
+  final timeMs = date.time;
+  print('Time value: $timeMs ms');
+
+  // Copy a date
+  final copy = JSDate.from(date);
+  print('Copied date: ${copy.toIsoString()}');
+}
+```
+
+### Creating and Dispatching Browser Events
+
+Handle and trigger custom browser events using the web package.
+
+```dart
+import 'package:web/web.dart';
+
+void main() {
+  // Get target element
+  final button = document.querySelector('#myButton') as HTMLButtonElement?;
+
+  if (button != null) {
+    // Add event listener
+    button.addEventListener('click', (Event event) {
+      final mouseEvent = event as MouseEvent;
+      print('Button clicked at: ${mouseEvent.clientX}, ${mouseEvent.clientY}');
+
+      // Prevent default behavior
+      event.preventDefault();
+      event.stopPropagation();
+    }.toJS);
+
+    // Create and dispatch custom event
+    final customEvent = CustomEvent('userAction', CustomEventInit(
+      detail: {'action': 'submit', 'timestamp': DateTime.now().millisecondsSinceEpoch}.jsify(),
+      bubbles: true,
+      cancelable: true,
+    ));
+    button.dispatchEvent(customEvent);
+
+    // Remove event listener (requires named function)
+    void handleClick(Event event) {
+      print('Clicked!');
+    }
+    button.addEventListener('click', handleClick.toJS);
+    button.removeEventListener('click', handleClick.toJS);
+  }
+
+  // Listen for keyboard events
+  document.addEventListener('keydown', (Event event) {
+    final keyEvent = event as KeyboardEvent;
+    print('Key pressed: ${keyEvent.key}');
+
+    if (keyEvent.ctrlKey && keyEvent.key == 's') {
+      event.preventDefault();
+      print('Ctrl+S intercepted');
+    }
+  }.toJS);
+
+  // Handle form submission
+  final form = document.querySelector('form') as HTMLFormElement?;
+  form?.addEventListener('submit', (Event event) {
+    event.preventDefault();
+
+    final formData = FormData(form);
+    print('Form submitted');
+
+    // Access form data
+    // Note: FormData iteration requires additional web API support
+  }.toJS);
+}
+```
+
+### Making HTTP Requests with Fetch API
+
+Perform asynchronous HTTP requests using the browser's Fetch API.
+
+```dart
+import 'dart:js_interop';
+import 'package:web/web.dart';
+
+Future<void> main() async {
+  // Simple GET request
+  try {
+    final response = await window.fetch('https://api.example.com/data'.toJS).toDart;
+
+    if (response.ok) {
+      final jsonText = await response.text().toDart;
+      print('Response: $jsonText');
+
+      // Or parse as JSON
+      final jsonData = await response.json().toDart;
+      print('JSON data: $jsonData');
+    } else {
+      print('Error: ${response.status} ${response.statusText}');
+    }
+  } catch (e) {
+    print('Fetch failed: $e');
+  }
+
+  // POST request with JSON body
+  final postResponse = await window.fetch(
+    'https://api.example.com/users'.toJS,
+    RequestInit(
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer token123',
+      }.jsify(),
+      body: '{"name":"Alice","email":"alice@example.com"}'.toJS,
+    ),
+  ).toDart;
+
+  // PUT request with custom headers
+  final putResponse = await window.fetch(
+    'https://api.example.com/users/123'.toJS,
+    RequestInit(
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'}.jsify(),
+      body: '{"name":"Bob"}'.toJS,
+    ),
+  ).toDart;
+
+  // DELETE request
+  final deleteResponse = await window.fetch(
+    'https://api.example.com/users/123'.toJS,
+    RequestInit(method: 'DELETE'),
+  ).toDart;
+
+  // Check response headers
+  final contentType = postResponse.headers.get('content-type');
+  print('Content-Type: $contentType');
+
+  // Handle different response types
+  final response = await window.fetch('https://api.example.com/image.png'.toJS).toDart;
+  final blob = await response.blob().toDart;
+  print('Blob size: ${blob.size} bytes');
+
+  // Read response as array buffer
+  final bufferResponse = await window.fetch('https://api.example.com/binary'.toJS).toDart;
+  final arrayBuffer = await bufferResponse.arrayBuffer().toDart;
+  print('Buffer byte length: ${arrayBuffer.byteLength}');
+}
+```
+
+### Storing Data in Browser LocalStorage
+
+Persist data in the browser using localStorage API.
+
+```dart
+import 'dart:js_interop';
+import 'package:web/web.dart';
+
+void main() {
+  final storage = window.localStorage;
+
+  // Store string values
+  storage.setItem('username', 'alice');
+  storage.setItem('theme', 'dark');
+  storage.setItem('fontSize', '16');
+
+  // Retrieve values
+  final username = storage.getItem('username');
+  print('Username: $username');  // "alice"
+
+  final theme = storage.getItem('theme');
+  print('Theme: $theme');  // "dark"
+
+  // Check if key exists (returns null if not found)
+  final missing = storage.getItem('nonexistent');
+  if (missing == null) {
+    print('Key not found');
+  }
+
+  // Store complex data as JSON
+  final userData = {
+    'id': 123,
+    'name': 'Alice',
+    'preferences': {'notifications': true, 'language': 'en'}
+  };
+  // Note: Convert to JSON string before storing
+  // storage.setItem('userData', jsonEncode(userData));
+
+  // Get number of items
+  final count = storage.length;
+  print('Storage contains $count items');
+
+  // Get key by index
+  for (var i = 0; i < storage.length; i++) {
+    final key = storage.key(i);
+    final value = storage.getItem(key!);
+    print('$key: $value');
+  }
+
+  // Remove single item
+  storage.removeItem('fontSize');
+
+  // Clear all storage
+  storage.clear();
+  print('Storage cleared, length: ${storage.length}');
+
+  // SessionStorage works identically but persists only for the session
+  final sessionStorage = window.sessionStorage;
+  sessionStorage.setItem('tempData', 'temporary');
+  final tempData = sessionStorage.getItem('tempData');
+  print('Session data: $tempData');
+}
+```
+
+### Generating TypeScript Bindings to Dart
+
+Generate Dart interop code from TypeScript declaration files.
+
+```bash
+# Generate from a single .d.ts file
+dart bin/gen_interop_bindings.dart input.d.ts
+
+# Generate with output file specified
+dart bin/gen_interop_bindings.dart -o lib/src/bindings.dart input.d.ts
+
+# Generate from multiple files (output becomes directory)
+dart bin/gen_interop_bindings.dart -o lib/src/ file1.d.ts file2.d.ts
+
+# Use configuration file
+dart bin/gen_interop_bindings.dart --config config.yaml
+
+# Example config.yaml
+# name: MyBindings
+# description: Custom JS bindings
+# input: bindings.d.ts
+# output: lib/src/js
+# language_version: 3.6.0
+# ts_config_file: tsconfig.json
+# generate_all: true
+# functions:
+#   varargs: 6
+# include:
+#   - myFunction
+#   - MyClass
+
+# Generate with TypeScript compiler options
+dart bin/gen_interop_bindings.dart --ts-config tsconfig.json input.d.ts
+
+# Get help on available options
+dart bin/gen_interop_bindings.dart --help
+```
+
+### Generating Web IDL Bindings to Dart
+
+Generate Dart interop code from Web IDL definitions for browser APIs.
+
+```bash
+# Regenerate package:web from current IDL versions
+dart bin/update_idl_bindings.dart
+
+# Update to latest Web IDL versions and regenerate
+dart bin/update_idl_bindings.dart --update
+
+# Generate all bindings (including experimental/non-standard)
+dart bin/update_idl_bindings.dart --generate-all
+
+# Update MDN documentation data
+dart bin/scrape_mdn.dart
+
+# The generator uses these npm packages:
+# - @webref/idl: Web IDL definitions
+# - @webref/css: CSS specifications
+# - @webref/elements: HTML elements
+#
+# Versions are tracked in lib/src/package.json
+#
+# Generated code follows conventions:
+# - Interfaces become extension types on JSObject
+# - Enums become String typedefs
+# - Callbacks become JSFunction typedefs
+# - Dart primitives preferred over JS types (String vs JSString)
+# - Uses MDN compatibility data to filter experimental APIs
+```
+
+### Converting Dart Maps to JavaScript Records
+
+Seamlessly convert between Dart and JavaScript collection types.
+
+```dart
+import 'dart:js_interop';
+import 'package:js_interop/js_interop.dart';
+
+void main() {
+  // Convert Dart Map to JSRecord using extension
+  final dartMap = {
+    'name': 'Product'.toJS,
+    'price': 29.99.toJS,
+    'inStock': true.toJS,
+  };
+  final jsRecord = dartMap.toJSRecord;
+
+  // Alternative conversion methods
+  final jsRecord2 = JSRecord.ofMap(dartMap);
+  final jsRecord3 = JSRecord.fromEntries(dartMap.entries);
+
+  // Access as JSRecord
+  print('Name: ${jsRecord["name"]}');
+  print('Price: ${jsRecord["price"]}');
+
+  // Modify the JSRecord
+  jsRecord['discount'] = 0.15.toJS;
+  jsRecord['category'] = 'electronics'.toJS;
+
+  // Convert back to Dart Map
+  final backToDart = jsRecord.toDart;
+  print('Back to Dart: $backToDart');
+
+  // Type-safe numeric record
+  final coordinates = {
+    'x': 10.toJS,
+    'y': 20.toJS,
+    'z': 30.toJS,
+  }.toJSRecord;
+
+  final x = coordinates['x'] as JSNumber;
+  print('X coordinate: ${x.toDartDouble}');
+
+  // String record
+  final config = {
+    'apiUrl': 'https://api.example.com'.toJS,
+    'version': 'v2'.toJS,
+    'format': 'json'.toJS,
+  }.toJSRecord;
+
+  // Iterate over the record
+  for (var (key, value) in config.pairs) {
+    print('Config $key = $value');
+  }
+}
+```
+
+## Integration and Use Cases
+
+The Dart web interop libraries enable modern web application development with full access to browser APIs while maintaining Dart's type safety and developer ergonomics. The primary use case is building web applications that compile to both JavaScript and WebAssembly, providing a seamless migration path from legacy `dart:html` code. The packages support DOM manipulation, HTTP requests, local storage, event handling, WebGL rendering, WebRTC communications, Service Workers, Web Workers, and access to modern web platform features like Web Components, Intersection Observer, and Resize Observer.
+
+For developers building JavaScript interop layers or consuming JavaScript libraries, the packages provide robust utilities for type conversion, dynamic property access, and bridging between Dart and JavaScript semantics. The generator tools enable teams to automatically create type-safe Dart bindings from TypeScript definitions or Web IDL specifications, significantly reducing manual binding maintenance. All APIs follow consistent conventions with zero-overhead extension types, ensuring optimal performance while preserving JavaScript interoperability semantics. The packages are actively maintained as the official Dart web platform solution and will continue receiving updates as new web standards emerge.

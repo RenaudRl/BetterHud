@@ -1,0 +1,3 @@
+example_screen_effect:
+  type: single # On garde "single" pour que BetterHUD charge toute la spritesheet en mémoire d'un coup.
+  file: screeneffects/example.png

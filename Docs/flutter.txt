@@ -1,0 +1,912 @@
+# Flutter Documentation Website
+
+The Flutter documentation website is a comprehensive documentation platform built with Jaspr, a modern Dart-based static site generator with server-side rendering capabilities. The site serves as the official documentation hub for Flutter developers at docs.flutter.dev, providing tutorials, API references, cookbook recipes, and architectural guidance. Built entirely in Dart using the Jaspr and Jaspr Content frameworks, the website transforms Markdown content into a fully optimized static site with advanced features like syntax highlighting, tabbed content, responsive layouts, and Firebase hosting integration.
+
+This project leverages Jaspr's component-based architecture with custom Markdown parsers, syntax highlighters using the Opal package, and a robust build toolchain managed through Dart CLI commands. The site supports multiple content types including interactive code examples, embedded DartPad snippets, YouTube videos, and dynamic navigation systems. With a focus on developer experience, the site includes features like automatic code excerpt synchronization, link validation, comprehensive testing utilities, and tutorial workflows with progress tracking to ensure content accuracy and consistency.
+
+## Build and Development
+
+### Build the site for development
+
+```bash
+# Serve locally with hot reload on port 8080
+dart run dash_site serve
+
+# Build static site for staging (non-optimized)
+dart run dash_site build
+
+# Build for production with optimization
+dart run dash_site build --release
+
+# Clean build artifacts
+dart run dash_site clean
+```
+
+### Build the site for production
+
+```bash
+# Production build with minification and optimization
+dart run dash_site build --release
+
+# Deploy to Firebase
+firebase deploy --only hosting
+
+# Verify Firebase configuration
+dart run dash_site verify-firebase-json
+```
+
+### Serve the site locally
+
+```bash
+# Start development server with incremental builds
+dart run dash_site serve
+
+# Development server with release mode compilers
+dart run dash_site serve --release
+
+# Direct Jaspr CLI command (requires jaspr_cli installed)
+dart pub global run jaspr_cli:jaspr serve --no-managed-build-options
+```
+
+## Content Management
+
+### Refresh code excerpts from source files
+
+```bash
+# Update all code excerpts in Markdown from .dart sources
+dart run dash_site refresh-excerpts
+
+# Excerpts use special syntax in Markdown:
+# <?code-excerpt "path/to/file.dart (region-name)"?>
+# The command synchronizes code blocks with source files
+```
+
+### Validate links and references
+
+```bash
+# Check all internal and external links
+dart run dash_site check-links
+
+# Verify link references in Markdown
+dart run dash_site check-link-references
+
+# Run all checks (links, excerpts, Dart analysis, tests)
+dart run dash_site check-all
+```
+
+### Dart code validation
+
+```bash
+# Analyze Dart code examples
+dart run dash_site analyze-dart
+
+# Run tests for Dart examples
+dart run dash_site test-dart
+
+# Format Dart code files
+dart run dash_site format-dart
+```
+
+## Jaspr Application Configuration
+
+### Configure the main application in site/lib/main.server.dart
+
+```dart
+import 'package:jaspr/server.dart';
+import 'package:jaspr_content/jaspr_content.dart';
+import 'package:jaspr_content/theme.dart';
+import 'package:path/path.dart' as path;
+
+import 'main.server.options.dart';
+
+void main() {
+  Jaspr.initializeApp(options: defaultServerOptions);
+  runApp(ComponentRefScope(child: _docsFlutterDevSite));
+}
+
+Component get _docsFlutterDevSite => ContentApp.custom(
+  eagerlyLoadAllPages: true,
+  loaders: [
+    FilesystemLoader(
+      path.join(siteSrcDirectoryPath, 'content'),
+      keepSuffixPattern: _passThroughPattern,
+    ),
+    MemoryLoader(pages: allMemoryPages),
+  ],
+  configResolver: PageConfig.all(
+    dataLoaders: [
+      FilesystemDataLoader(path.join(siteSrcDirectoryPath, 'data')),
+      DataProcessor(),
+    ],
+    templateEngine: DashTemplateEngine(
+      partialDirectoryPath: path.canonicalize(
+        path.join(siteSrcDirectoryPath, '_includes'),
+      ),
+    ),
+    parsers: const [
+      DashMarkdownParser(),
+      HtmlParser(),
+    ],
+    rawOutputPattern: _passThroughPattern,
+    extensions: allNodeProcessingExtensions,
+    components: _embeddableComponents,
+    layouts: const [
+      DocLayout(),
+      TocLayout(),
+      TutorialLayout(),
+    ],
+    theme: const ContentTheme.none(),
+    secondaryOutputs: [
+      const RobotsTxtOutput(),
+      MarkdownOutput(
+        createHeader: (page) {
+          final header = StringBuffer();
+          if (page.data.page['title'] case final String title
+              when title.isNotEmpty) {
+            header.writeln('# $title');
+
+            if (page.data.page['description'] case final String description
+                when description.isNotEmpty) {
+              header.writeln();
+              header.writeln('> $description');
+            }
+          }
+          return header.toString();
+        },
+      ),
+    ],
+  ),
+);
+
+final RegExp _passThroughPattern = RegExp(r'.*\.(txt|json|pdf)$');
+```
+
+### Register custom components for Markdown
+
+```dart
+/// Custom "components" that can be used from Markdown files.
+List<CustomComponent> get _embeddableComponents => [
+  const DashTabs(),
+  const DashImage(),
+  const CodePreview(),
+  const YoutubeEmbed(),
+  const FileTree(),
+  const Quiz(),
+  const ProgressRing(),
+  const SummaryCard(),
+  const DownloadableSnippet(),
+  const Stepper(),
+  const WidgetCatalogCategories(),
+  const TutorialOutline(),
+  const WidgetCatalogGrid(),
+  const ArchitectureRecommendations(),
+  const PlatformsGrid(),
+  const PlatformCard(),
+  CustomComponent(
+    pattern: RegExp('Icon', caseSensitive: false),
+    builder: (_, attrs, _) => MaterialIcon.fromAttributes(attrs),
+  ),
+  CustomComponent(
+    pattern: RegExp('OSSelector', caseSensitive: false),
+    builder: (_, _, _) => const OsSelector(),
+  ),
+  CustomComponent(
+    pattern: RegExp('Card', caseSensitive: false),
+    builder: (_, attrs, child) => Card.fromAttributes(attrs, child),
+  ),
+  CustomComponent(
+    pattern: RegExp('LearningResourceIndex', caseSensitive: false),
+    builder: (_, _, _) => LearningResourceIndex(),
+  ),
+  CustomComponent(
+    pattern: RegExp('ArchiveTable'),
+    builder: (_, attrs, _) => ArchiveTable.fromAttributes(attrs),
+  ),
+  CustomComponent(
+    pattern: RegExp('DownloadLatestButton', caseSensitive: false),
+    builder: (_, attrs, _) => DownloadLatestButton.fromAttributes(attrs),
+  ),
+  CustomComponent(
+    pattern: RegExp('ExpansionList', caseSensitive: false),
+    builder: (_, attrs, _) => ExpansionList.fromAttributes(attrs),
+  ),
+  CustomComponent(
+    pattern: RegExp('DevToolsReleaseNotesIndex', caseSensitive: false),
+    builder: (_, _, _) => const DevToolsReleaseNotesIndex(),
+  ),
+];
+
+// Usage in Markdown:
+// <Tabs>
+//   <Tab name="iOS">iOS content</Tab>
+//   <Tab name="Android">Android content</Tab>
+// </Tabs>
+```
+
+## Markdown Processing
+
+### Create custom alerts and admonitions
+
+```markdown
+<!-- Note alert with icon -->
+:::note Custom Title
+This is a note with custom title and info icon.
+:::
+
+<!-- Warning alert -->
+:::warning
+Important warning message with warning icon.
+:::
+
+<!-- Tip alert -->
+:::tip Pro Tip
+Helpful tip with lightbulb icon.
+:::
+
+<!-- Version note -->
+:::version-note
+Available in Flutter 3.0 and later.
+:::
+
+<!-- Secondary aside without icon -->
+:::secondary
+Additional information without prominent styling.
+:::
+```
+
+### Configure Markdown parser with custom syntaxes
+
+```dart
+import 'package:markdown/markdown.dart' as md;
+
+/// The block syntaxes to apply when parsing Markdown.
+const List<md.BlockSyntax> blockSyntaxes = [
+  JasprHtmlBlockSyntax(),
+  CustomFencedCodeBlockSyntax(),
+  HeaderWithAttributesSyntax(),
+  AttributeBlockSyntax(),
+  AlertBlockSyntax(),
+  DescriptionListSyntax(),
+  md.TableSyntax(),
+  md.FootnoteDefSyntax(),
+  md.BlockquoteSyntax(),
+  md.UnorderedListSyntax(),
+  md.OrderedListSyntax(),
+];
+
+/// The inline syntaxes to apply when parsing Markdown.
+final List<md.InlineSyntax> inlineSyntaxes = [
+  md.InlineHtmlSyntax(),
+  AttributeInlineSyntax(),
+];
+
+md.Document get markdownDocument => md.Document(
+  blockSyntaxes: blockSyntaxes,
+  inlineSyntaxes: inlineSyntaxes,
+  withDefaultBlockSyntaxes: false,
+);
+```
+
+## Syntax Highlighting
+
+### Add code blocks with advanced features
+
+````markdown
+```dart title="lib/main.dart" showLineNumbers highlightLines="5-7,12"
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Flutter Demo')),
+        body: const Center(child: Text('Hello World')),
+      ),
+    );
+  }
+}
+```
+
+```dart diff
+class Counter {
+-  int value = 0;
++  int count = 0;
+
+-  void increment() => value++;
++  void increment() => count++;
+}
+```
+
+```dart tag="good"
+// Good example with green tag
+final list = <String>[];
+```
+
+```dart tag="bad"
+// Bad example with red tag
+var list = [];
+```
+
+```console
+$ flutter create my_app
+$ cd my_app
+$ flutter run
+```
+````
+
+### Configure Opal syntax highlighter
+
+```dart
+import 'package:opal/opal.dart';
+
+// Opal is configured in the site/lib/src/extensions/code_block.dart
+// It processes code blocks with metadata from fenced code blocks
+class CodeBlockExtension implements NodeProcessingExtension {
+  @override
+  Future<List<Node>> apply(Page page, List<Node> nodes) async {
+    return nodes.map((node) {
+      if (node is ElementNode && node.tag == 'pre') {
+        final codeNode = node.children?.firstOrNull;
+        if (codeNode is ElementNode && codeNode.tag == 'code') {
+          final language = codeNode.attributes['class']
+              ?.replaceFirst('language-', '');
+          final metadata = codeNode.attributes['data-meta'];
+
+          // Parse metadata for line numbers, highlighting, etc.
+          final attributes = _parseMetadata(metadata);
+
+          // Apply syntax highlighting with Opal
+          return _highlightCode(codeNode.text, language, attributes);
+        }
+      }
+      return node;
+    }).toList();
+  }
+}
+```
+
+## Custom Components
+
+### Create tabbed content in Markdown
+
+```html
+<Tabs key="platform" wrapped="false">
+
+<Tab name="iOS" id="ios">
+
+## iOS Setup
+Run the following command:
+```bash
+flutter run -d ios
+```
+
+</Tab>
+
+<Tab name="Android" id="android">
+
+## Android Setup
+Run the following command:
+```bash
+flutter run -d android
+```
+
+</Tab>
+
+<Tab name="Web" id="web">
+
+## Web Setup
+Run the following command:
+```bash
+flutter run -d chrome
+```
+
+</Tab>
+
+</Tabs>
+```
+
+### Implement a custom component in Dart
+
+```dart
+import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_content/jaspr_content.dart';
+
+class DashTabs extends CustomComponent {
+  const DashTabs() : super.base();
+
+  @override
+  Component? create(Node node, NodesBuilder builder) {
+    if (node is! ElementNode || node.tag != 'Tabs') {
+      return null;
+    }
+
+    final tabs = node.children
+        ?.whereType<ElementNode>()
+        .where((n) => n.tag == 'Tab')
+        .toList(growable: false);
+
+    if (tabs == null || tabs.length < 2) {
+      print('[ERROR] The <Tabs> element requires at least 2 <Tab> children!');
+      return null;
+    }
+
+    return _DashTabsWrapper(
+      id: generateId(),
+      saveKey: node.attributes['key'],
+      wrapped: node.attributes['wrapped'] == 'true',
+      tabs: [
+        for (final (tabIndex, tab) in tabs.indexed)
+          _DashTabPane(
+            tabName: tab.attributes['name']!,
+            isActive: tabIndex == 0,
+            child: builder.build(tab.children),
+          ),
+      ],
+    );
+  }
+}
+```
+
+### Embed YouTube videos
+
+```html
+<!-- Simple YouTube embed -->
+<YoutubeEmbed videoId="v6Rzo5khNE8" title="What's new in Flutter" />
+
+<!-- Video with custom aspect ratio -->
+<YoutubeEmbed
+  videoId="xo271p-Fl_4"
+  title="How to build agentic apps"
+  aspectRatio="16/9" />
+```
+
+### Create OS selector for installation
+
+```html
+<!-- Generates OS selector cards for Windows, macOS, Linux, ChromeOS -->
+<OSSelector />
+
+<!-- JavaScript automatically shows/hides platform-specific content -->
+<!-- Use data-os attributes to target specific operating systems -->
+```
+
+### Create tutorial components
+
+```html
+<!-- Progress ring for tutorial completion -->
+<ProgressRing progress="75" />
+
+<!-- Summary card for chapter overview -->
+<SummaryCard title="What you'll learn">
+Learn how to build your first Flutter app step by step.
+</SummaryCard>
+
+<!-- Downloadable code snippet -->
+<DownloadableSnippet filename="main.dart" path="examples/tutorial/step1" />
+
+<!-- Stepper for multi-step tutorials -->
+<Stepper currentStep="3" totalSteps="5" />
+
+<!-- Tutorial outline navigation -->
+<TutorialOutline />
+```
+
+## Layouts and Page Types
+
+### Configure page layouts
+
+```dart
+// Three main layout types are available:
+layouts: const [
+  DocLayout(),      // Standard documentation pages
+  TocLayout(),      // Table of contents pages
+  TutorialLayout(), // Interactive tutorial pages
+]
+```
+
+### Create a tutorial page with custom layout
+
+```markdown
+---
+title: Build your first Flutter app
+description: Step-by-step tutorial for Flutter beginners
+layout: tutorial
+tutorial:
+  title: Flutter Basics Tutorial
+  units:
+    - title: Getting Started
+      chapters:
+        - title: Install Flutter
+          url: /tutorial/install
+        - title: Create your first app
+          url: /tutorial/first-app
+    - title: Building UI
+      chapters:
+        - title: Understanding widgets
+          url: /tutorial/widgets
+        - title: Layout basics
+          url: /tutorial/layouts
+---
+
+# Build your first Flutter app
+
+<TutorialOutline />
+
+Welcome to your first Flutter tutorial!
+
+<ProgressRing progress="0" />
+```
+
+### Configure layout-specific features
+
+```dart
+class TutorialLayout extends DocLayout {
+  const TutorialLayout();
+
+  @override
+  String get name => 'tutorial';
+
+  @override
+  bool get allowBreadcrumbs => false;
+
+  @override
+  List<String> get defaultBodyClasses => ['sidenav-closed'];
+
+  @override
+  Component buildBody(Page page, Component child) {
+    final model = TutorialModel.fromMap(page.data['tutorial']);
+
+    final navigationEntries = <Map<String, Object?>>[];
+    for (final unit in model.units) {
+      navigationEntries.add({'type': 'divider', 'title': unit.title});
+      for (final chapter in unit.chapters) {
+        navigationEntries.add({'title': chapter.title, 'path': chapter.url});
+      }
+    }
+
+    return super.buildBody(
+      page..apply(
+        data: {
+          'page': {
+            'showBanner': false,
+            'navigationCollectionTitle': model.title,
+            'navigationEntries': navigationEntries,
+          },
+        },
+      ),
+      child,
+    );
+  }
+}
+```
+
+## Dash Site CLI Tool
+
+### Use the dash_site CLI commands
+
+```bash
+# Get help and see all commands
+dart run dash_site --help
+
+# Build commands
+dart run dash_site build           # Development build
+dart run dash_site build --release # Production build
+dart run dash_site serve           # Development server
+dart run dash_site clean           # Clean build artifacts
+
+# Validation commands
+dart run dash_site check-all               # Run all checks
+dart run dash_site check-links             # Validate links
+dart run dash_site check-link-references   # Check reference links
+dart run dash_site analyze-dart            # Analyze Dart code
+dart run dash_site test-dart               # Test Dart examples
+dart run dash_site format-dart             # Format Dart code
+
+# Content management
+dart run dash_site refresh-excerpts        # Update code excerpts
+dart run dash_site verify-firebase-json    # Validate Firebase config
+```
+
+### Extend the CLI with custom commands
+
+```dart
+import 'package:args/command_runner.dart';
+
+final class CustomCommand extends Command<int> {
+  CustomCommand() {
+    argParser.addFlag('verbose',
+      defaultsTo: false,
+      help: 'Enable verbose logging.',
+    );
+  }
+
+  @override
+  String get name => 'custom';
+
+  @override
+  String get description => 'A custom command for the site.';
+
+  @override
+  Future<int> run() async {
+    final verbose = argResults?.['verbose'] ?? false;
+
+    if (verbose) {
+      print('Running custom command with verbose output...');
+    }
+
+    // Implementation here
+
+    return 0;
+  }
+}
+
+// Register in DashSiteCommandRunner
+final class DashSiteCommandRunner extends CommandRunner<int> {
+  DashSiteCommandRunner()
+    : super(
+        'dart run dash_site',
+        'Infrastructure tooling for the Flutter documentation website.',
+      ) {
+    addCommand(AnalyzeDartCommand());
+    addCommand(BuildSiteCommand());
+    addCommand(ServeSiteCommand());
+    addCommand(CustomCommand());
+  }
+}
+```
+
+## Environment Setup
+
+### Install and configure dependencies
+
+```bash
+# Clone repository
+git clone https://github.com/flutter/website.git
+cd website
+
+# Verify Flutter is installed
+flutter --version
+
+# Install Dart dependencies for all workspace packages
+dart pub get
+
+# Install Jaspr CLI globally (optional, dash_site handles this)
+dart pub global activate jaspr_cli
+
+# Verify setup
+dart run dash_site --help
+```
+
+### Configure package dependencies
+
+```yaml
+# site/pubspec.yaml - Main site package
+name: docs_flutter_dev_site
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  jaspr: ^0.22.0
+  jaspr_content: ^0.4.5
+  liquify: ^1.3.1                # Template engine
+  markdown: ^7.3.0                # Markdown parsing
+  markdown_description_list: ^0.1.1  # Description list syntax
+  opal: ^0.2.0                    # Syntax highlighting
+  build: ^4.0.2
+  collection: ^1.19.1
+  crypto: ^3.0.7
+  html: ^0.15.6
+  http: ^1.5.0
+  meta: ^1.17.0
+  nanoid2: ^2.0.1                 # ID generation
+  path: ^1.9.1
+  pub_semver: ^2.2.0              # Version parsing
+  universal_web: ^1.1.1+1         # Web utilities
+  yaml: ^3.1.3
+
+dev_dependencies:
+  jaspr_builder: ^0.22.0
+  build_runner: ^2.10.2
+  build_web_compilers: ^4.4.0
+  sass: ^1.93.3
+  sass_builder: ^2.4.0
+
+jaspr:
+  mode: static
+```
+
+### Configure Firebase deployment
+
+```json
+{
+  "hosting": {
+    "public": "_site",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "redirects": [
+      {
+        "source": "/docs/:rest*",
+        "destination": "/:rest*",
+        "type": 301
+      },
+      {
+        "regex": "(.*)\\.html$",
+        "destination": ":1",
+        "type": 301
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Project Structure
+
+### Understanding the workspace layout
+
+```
+website/
+├── site/                       # Main Jaspr application
+│   ├── lib/
+│   │   ├── main.server.dart   # Server entry point
+│   │   ├── main.client.dart   # Client entry point
+│   │   ├── main.server.options.dart  # Generated server config
+│   │   ├── main.client.options.dart  # Generated client config
+│   │   └── src/
+│   │       ├── components/    # Reusable Jaspr components
+│   │       │   ├── common/    # Shared UI components
+│   │       │   ├── dartpad/   # DartPad integration
+│   │       │   ├── layout/    # Layout components
+│   │       │   ├── pages/     # Page-specific components
+│   │       │   └── tutorial/  # Tutorial components
+│   │       ├── layouts/       # Page layout components
+│   │       ├── markdown/      # Custom Markdown syntaxes
+│   │       ├── extensions/    # Node processing extensions
+│   │       ├── highlight/     # Syntax highlighting
+│   │       └── templating/    # Liquify template engine
+│   ├── web/                   # Static web assets
+│   ├── build.yaml             # Build configuration
+│   └── pubspec.yaml           # Package dependencies
+├── src/
+│   ├── content/               # Markdown content files
+│   ├── data/                  # YAML data files
+│   ├── _includes/             # Partial templates
+│   └── _snippets/             # Reusable content snippets
+├── tool/
+│   └── dash_site/             # CLI tool package
+│       ├── bin/
+│       │   └── dash_site.dart # CLI entry point
+│       └── lib/
+│           └── src/
+│               └── commands/  # Command implementations
+├── examples/                  # Example Dart projects
+├── pubspec.yaml              # Workspace configuration
+└── firebase.json             # Firebase hosting config
+```
+
+## Content Authoring
+
+### Create a new documentation page
+
+```markdown
+---
+title: Getting Started with Flutter
+description: Learn how to install and set up Flutter
+layout: docs
+---
+
+# Getting Started with Flutter
+
+Welcome to Flutter! This guide will help you get started.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- A computer running Windows, macOS, or Linux
+- At least 2GB of free disk space
+
+:::note
+Make sure to download the latest stable version of Flutter.
+:::
+
+## Installation
+
+<Tabs key="os">
+
+<Tab name="macOS" id="macos">
+
+Download Flutter for macOS:
+
+```bash
+git clone https://github.com/flutter/flutter.git -b stable
+export PATH="$PATH:`pwd`/flutter/bin"
+```
+
+</Tab>
+
+<Tab name="Windows" id="windows">
+
+Download Flutter for Windows and extract the zip file.
+
+</Tab>
+
+</Tabs>
+
+## Next Steps
+
+Now that you have Flutter installed, check out our [tutorials](/tutorials).
+```
+
+### Add code excerpts from source files
+
+```markdown
+<!-- In your Markdown file -->
+<?code-excerpt "examples/my_app/lib/main.dart (main)"?>
+```dart
+// This code will be automatically populated from the source file
+```
+
+<!-- In examples/my_app/lib/main.dart -->
+```dart
+// #docregion main
+void main() {
+  runApp(const MyApp());
+}
+// #enddocregion main
+```
+
+### Create widget catalog and architecture pages
+
+```html
+<!-- Display widget categories -->
+<WidgetCatalogCategories />
+
+<!-- Display widgets in a specific category -->
+<WidgetCatalogGrid category="material" />
+
+<!-- Show architecture recommendations -->
+<ArchitectureRecommendations />
+
+<!-- Platform support grid -->
+<PlatformsGrid />
+<PlatformCard platform="ios" />
+
+<!-- Expandable content lists -->
+<ExpansionList items="release-notes" />
+
+<!-- Archive table for historical releases -->
+<ArchiveTable version="3.0" />
+
+<!-- Download latest Flutter SDK -->
+<DownloadLatestButton platform="macos" />
+```
+
+## Integration Summary
+
+The Flutter documentation website demonstrates a sophisticated integration of static site generation with modern Dart-based web development practices. The architecture leverages Jaspr's component-based model and Jaspr Content's powerful content management features to process Markdown files through a pipeline of custom parsers, extensions, and components. Unlike traditional Node.js-based static site generators, this fully Dart-based solution allows the Flutter team to maintain consistency with the Flutter ecosystem, use the same language for both documentation tooling and example code, and leverage Dart's strong typing and compile-time safety throughout the build process. The latest version introduces enhanced tutorial support with dedicated layouts and progress-tracking components, expanded widget catalog functionality, and improved secondary output generation for better content reuse.
+
+The site's content management workflow is designed for scale and maintainability, with code examples stored as executable Dart files that can be tested and validated before being synchronized into Markdown documentation via code excerpts. The syntax highlighting system uses Opal, a Dart-native highlighting library, to provide consistent code highlighting across all platforms. Custom Markdown syntaxes handle alerts, attributes, and special block types, while Jaspr components enable interactive features like tabbed content, OS selectors, progress rings, and downloadable code snippets. The addition of TutorialLayout provides a specialized experience for learning paths with automatic navigation generation and progress tracking. Integration with Firebase hosting enables preview deployments for pull requests and production deployments with comprehensive redirect rules and security headers. The dash_site CLI tool provides a unified interface for all documentation tasks, from building and serving to validation and testing, ensuring that documentation remains accurate, examples stay executable, and the site delivers optimal performance for Flutter developers worldwide.

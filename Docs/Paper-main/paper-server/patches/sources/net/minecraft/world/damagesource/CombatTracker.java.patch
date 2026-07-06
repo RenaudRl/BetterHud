@@ -1,0 +1,41 @@
+--- a/net/minecraft/world/damagesource/CombatTracker.java
++++ b/net/minecraft/world/damagesource/CombatTracker.java
+@@ -29,15 +_,24 @@
+     private int combatEndTime;
+     public boolean inCombat;
+     public boolean takingDamage;
++    public final io.papermc.paper.world.damagesource.PaperCombatTrackerWrapper paperCombatTracker; // Paper - Combat tracker API
+ 
+     public CombatTracker(final LivingEntity mob) {
+         this.mob = mob;
++        this.paperCombatTracker = new io.papermc.paper.world.damagesource.PaperCombatTrackerWrapper(this); // Paper - Combat tracker API
+     }
+ 
+     public void recordDamage(final DamageSource source, final float damage) {
+         this.recheckStatus();
+         FallLocation fallLocation = FallLocation.getCurrentFallLocation(this.mob);
+         CombatEntry entry = new CombatEntry(source, damage, fallLocation, (float)this.mob.fallDistance);
++    // Paper start - Combat tracker API
++        recordDamageAndCheckCombatState(entry);
++    }
++
++    public void recordDamageAndCheckCombatState(final CombatEntry entry) {
++        final DamageSource source = entry.source();
++    // Paper end - Combat tracker API
+         this.entries.add(entry);
+         this.lastDamageTime = this.mob.tickCount;
+         this.takingDamage = true;
+@@ -147,6 +_,13 @@
+     public void recheckStatus() {
+         int reset = this.inCombat ? 300 : 100;
+         if (this.takingDamage && (!this.mob.isAlive() || this.mob.tickCount - this.lastDamageTime > reset)) {
++    // Paper start - Combat tracker API
++            resetCombatState();
++        }
++    }
++
++    public void resetCombatState() {{
++    // Paper end - Combat tracker API
+             boolean wasInCombat = this.inCombat;
+             this.takingDamage = false;
+             this.inCombat = false;

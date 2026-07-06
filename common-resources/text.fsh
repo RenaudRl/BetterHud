@@ -51,4 +51,10 @@ void main() {
 #else
     fragColor = linear_fog(color, vertexDistance, FogStart, FogEnd, FogColor);
 #endif
+
+    // BTC MINIMAP: discard fragments outside the texture bounds
+    // This makes the area outside the minimap transparent.
+    if (clamp(texCoord0, vec2(0.), vec2(1.)) != texCoord0) {
+        discard;
+    }
 }

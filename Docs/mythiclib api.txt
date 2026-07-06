@@ -1,0 +1,675 @@
+# MythicLib
+
+MythicLib is a comprehensive Minecraft plugin library that provides shared functionality for MMO-style plugins, particularly MMOItems and MMOCore. It serves as a centralized framework for handling complex game mechanics that extend beyond vanilla Minecraft capabilities. The library abstracts version-dependent NMS (Net Minecraft Server) code across Minecraft versions 1.14 through 1.21+, enabling plugin developers to implement advanced features without dealing with version-specific implementations.
+
+The library offers a complete ecosystem for MMO game mechanics including an advanced stat system with dynamic modifiers, sophisticated damage calculation with multiple damage types and elemental properties, a flexible skill system supporting both passive and active abilities, NBT-based item management, player data persistence with multi-profile support, crafting recipe customization, and integration hooks for major Minecraft plugins like MythicMobs, WorldGuard, PlaceholderAPI, and ProtocolLib. MythicLib handles everything from damage indicators and mitigation systems (dodge, parry, block) to cooldown management and visual effects.
+
+## Maven Dependency Configuration
+
+Add MythicLib as a dependency to your project.
+
+```xml
+<repository>
+    <id>phoenix</id>
+    <url>https://nexus.phoenixdevt.fr/repository/maven-public/</url>
+</repository>
+
+<dependency>
+    <groupId>io.lumine</groupId>
+    <artifactId>MythicLib-dist</artifactId>
+    <version>1.7.1-SNAPSHOT</version>
+    <scope>provided</scope>
+    <optional>true</optional>
+</dependency>
+```
+
+## Accessing Player Data
+
+Retrieve and manage player-specific MMO data including stats, cooldowns, and skills.
+
+```java
+import io.lumine.mythic.lib.api.player.MMOPlayerData;
+import io.lumine.mythic.lib.api.stat.StatMap;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+
+public class PlayerDataExample implements Listener {
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+
+        // Get MMOPlayerData for the player
+        MMOPlayerData playerData = MMOPlayerData.get(player);
+
+        // Check if player is online
+        if (playerData.isOnline()) {
+            player.sendMessage("Welcome! Your data is loaded.");
+
+            // Access stat map
+            StatMap statMap = playerData.getStatMap();
+            double attackDamage = statMap.getStat("ATTACK_DAMAGE");
+            double maxHealth = statMap.getStat("MAX_HEALTH");
+            double critChance = statMap.getStat("CRITICAL_STRIKE_CHANCE");
+
+            player.sendMessage("Attack Damage: " + attackDamage);
+            player.sendMessage("Max Health: " + maxHealth);
+            player.sendMessage("Crit Chance: " + critChance + "%");
+        }
+    }
+}
+```
+
+## Registering and Modifying Stats
+
+Add temporary or permanent stat modifiers to players using the stat instance system.
+
+```java
+import io.lumine.mythic.lib.api.player.MMOPlayerData;
+import io.lumine.mythic.lib.api.stat.StatInstance;
+import io.lumine.mythic.lib.api.stat.StatMap;
+import io.lumine.mythic.lib.api.stat.modifier.StatModifier;
+import io.lumine.mythic.lib.api.stat.api.InstanceModifier;
+import org.bukkit.entity.Player;
+
+import java.util.UUID;
+
+public class StatModifierExample {
+
+    public void applyPowerBuff(Player player, double duration) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+        StatMap statMap = data.getStatMap();
+
+        // Get the attack damage stat instance
+        StatInstance attackDamage = statMap.getInstance("ATTACK_DAMAGE");
+
+        // Create a flat modifier (adds +10 attack damage)
+        UUID modifierId = UUID.randomUUID();
+        StatModifier flatModifier = new StatModifier(
+            modifierId,
+            "POWER_BUFF",  // Source identifier
+            10.0,          // Value
+            InstanceModifier.ModifierType.FLAT,
+            EquipmentSlot.OTHER
+        );
+
+        // Register the modifier
+        attackDamage.registerModifier(flatModifier);
+
+        // Schedule removal after duration
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            attackDamage.removeModifier(modifierId);
+        }, (long) (duration * 20)); // Convert seconds to ticks
+    }
+
+    public void applySpeedBoost(Player player) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+        StatMap statMap = data.getStatMap();
+
+        // Get movement speed instance
+        StatInstance movementSpeed = statMap.getInstance("MOVEMENT_SPEED");
+
+        // Create a relative modifier (adds +20% movement speed)
+        StatModifier relativeModifier = new StatModifier(
+            UUID.randomUUID(),
+            "SPEED_BOOST",
+            0.20,  // 20% increase
+            InstanceModifier.ModifierType.RELATIVE
+        );
+
+        movementSpeed.registerModifier(relativeModifier);
+
+        player.sendMessage("Movement speed boosted by 20%!");
+    }
+
+    public void applyMultiplicativeBonus(Player player) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+        StatMap statMap = data.getStatMap();
+
+        // Buffer updates to prevent multiple recalculations
+        statMap.bufferUpdates(buffered -> {
+            // Apply multiple modifiers efficiently
+            StatInstance damage = statMap.getInstance("ATTACK_DAMAGE");
+            damage.registerModifier(new StatModifier(
+                UUID.randomUUID(), "RAGE_MODE", 15,
+                InstanceModifier.ModifierType.FLAT
+            ));
+
+            StatInstance critDamage = statMap.getInstance("CRITICAL_STRIKE_DAMAGE");
+            critDamage.registerModifier(new StatModifier(
+                UUID.randomUUID(), "RAGE_MODE", 0.5,
+                InstanceModifier.ModifierType.RELATIVE
+            ));
+
+            // All updates will be applied at once when buffer closes
+        });
+
+        player.sendMessage("Rage mode activated!");
+    }
+}
+```
+
+## Dealing Custom Damage
+
+Create and register attacks with custom damage types, elements, and metadata.
+
+```java
+import io.lumine.mythic.lib.MythicLib;
+import io.lumine.mythic.lib.damage.AttackMetadata;
+import io.lumine.mythic.lib.damage.DamageMetadata;
+import io.lumine.mythic.lib.damage.DamageType;
+import io.lumine.mythic.lib.player.PlayerMetadata;
+import io.lumine.mythic.lib.element.Element;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+
+public class DamageExample {
+
+    public void dealSkillDamage(Player attacker, LivingEntity target) {
+        // Get player metadata (includes stat calculations)
+        PlayerMetadata playerMeta = PlayerMetadata.getOrLoad(attacker);
+
+        // Create damage metadata with types
+        DamageMetadata damage = new DamageMetadata(
+            25.0,  // Base damage
+            DamageType.SKILL,      // Skill damage
+            DamageType.MAGIC       // Magic damage
+        );
+
+        // Create attack metadata
+        AttackMetadata attack = playerMeta.attack(target, damage);
+
+        // Register the attack with the damage manager
+        MythicLib.plugin.getDamage().registerAttack(attack);
+    }
+
+    public void dealElementalDamage(Player attacker, LivingEntity target) {
+        PlayerMetadata playerMeta = PlayerMetadata.getOrLoad(attacker);
+
+        // Get fire element from element manager
+        Element fireElement = MythicLib.plugin.getElements().get("FIRE");
+
+        // Create elemental damage
+        DamageMetadata damage = new DamageMetadata(
+            30.0,           // Base damage
+            fireElement,    // Fire element
+            DamageType.MAGIC, DamageType.SKILL
+        );
+
+        // Add additional damage packets
+        damage.add(10.0, DamageType.DOT);  // Add 10 DOT damage
+
+        // Apply damage modifiers
+        damage.multiplicativeModifier(1.5);  // 50% more damage
+        damage.additiveModifier(0.25);       // 25% additional damage
+
+        AttackMetadata attack = playerMeta.attack(target, damage);
+        MythicLib.plugin.getDamage().registerAttack(attack);
+    }
+
+    public void dealPhysicalAttack(Player attacker, LivingEntity target, double weaponDamage) {
+        PlayerMetadata playerMeta = PlayerMetadata.getOrLoad(attacker);
+
+        // Create physical weapon damage
+        DamageMetadata damage = new DamageMetadata(
+            weaponDamage,
+            DamageType.PHYSICAL,
+            DamageType.WEAPON
+        );
+
+        // Multiply damage by a specific type
+        damage.multiplicativeModifier(DamageType.PHYSICAL, 1.2);  // 20% more physical damage
+
+        // Register attack with custom knockback
+        AttackMetadata attack = playerMeta.attack(target, damage);
+        MythicLib.plugin.getDamage().markAsKnockback(attack);
+        MythicLib.plugin.getDamage().registerAttack(attack);
+    }
+}
+```
+
+## Triggering Skills
+
+Execute passive and active skills based on trigger types and conditions.
+
+```java
+import io.lumine.mythic.lib.api.player.MMOPlayerData;
+import io.lumine.mythic.lib.player.skill.PassiveSkill;
+import io.lumine.mythic.lib.player.skill.PassiveSkillMap;
+import io.lumine.mythic.lib.skill.trigger.TriggerMetadata;
+import io.lumine.mythic.lib.skill.trigger.TriggerType;
+import io.lumine.mythic.lib.skill.handler.SkillHandler;
+import io.lumine.mythic.lib.MythicLib;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.Action;
+
+public class SkillTriggerExample implements Listener {
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        MMOPlayerData data = MMOPlayerData.get(player);
+
+        // Trigger skills based on interaction type
+        if (event.getAction() == Action.LEFT_CLICK_AIR ||
+            event.getAction() == Action.LEFT_CLICK_BLOCK) {
+
+            // Trigger all left-click skills
+            data.triggerSkills(TriggerType.LEFT_CLICK);
+        }
+
+        if (event.getAction() == Action.RIGHT_CLICK_AIR ||
+            event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+
+            // Trigger all right-click skills
+            data.triggerSkills(TriggerType.RIGHT_CLICK);
+        }
+    }
+
+    public void registerPassiveSkill(Player player, String skillId) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+        PassiveSkillMap passiveSkills = data.getPassiveSkillMap();
+
+        // Get skill handler from manager
+        SkillHandler<?> handler = MythicLib.plugin.getSkills().getHandler(skillId);
+
+        if (handler != null) {
+            // Create passive skill instance
+            PassiveSkill passive = new PassiveSkill(
+                skillId,
+                handler,
+                TriggerType.DAMAGED  // Trigger when player takes damage
+            );
+
+            // Register the passive skill
+            passiveSkills.registerPassiveSkill(passive);
+
+            player.sendMessage("Passive skill registered: " + skillId);
+        }
+    }
+
+    public void triggerCustomSkill(Player player, TriggerType trigger) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+
+        // Create trigger metadata with additional context
+        TriggerMetadata triggerMeta = new TriggerMetadata(data, trigger);
+
+        // Trigger skills with metadata
+        data.triggerSkills(triggerMeta);
+    }
+}
+```
+
+## Managing Player Cooldowns
+
+Handle skill and ability cooldowns with the centralized cooldown system.
+
+```java
+import io.lumine.mythic.lib.api.player.MMOPlayerData;
+import io.lumine.mythic.lib.player.cooldown.CooldownMap;
+import io.lumine.mythic.lib.player.cooldown.CooldownType;
+import org.bukkit.entity.Player;
+
+public class CooldownExample {
+
+    public void applySkillCooldown(Player player, String skillName, double seconds) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+        CooldownMap cooldowns = data.getCooldownMap();
+
+        // Apply skill cooldown
+        cooldowns.applyCooldown(
+            CooldownType.SKILL,
+            skillName,
+            seconds * 1000  // Convert to milliseconds
+        );
+
+        player.sendMessage("Skill " + skillName + " is on cooldown for " + seconds + "s");
+    }
+
+    public boolean canUseSkill(Player player, String skillName) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+        CooldownMap cooldowns = data.getCooldownMap();
+
+        // Check if skill is on cooldown
+        if (cooldowns.isOnCooldown(CooldownType.SKILL, skillName)) {
+            double remaining = cooldowns.getCooldown(CooldownType.SKILL, skillName) / 1000.0;
+            player.sendMessage("Skill on cooldown! " +
+                String.format("%.1f", remaining) + "s remaining");
+            return false;
+        }
+
+        return true;
+    }
+
+    public void reduceCooldown(Player player, String skillName, double reduction) {
+        MMOPlayerData data = MMOPlayerData.get(player);
+        CooldownMap cooldowns = data.getCooldownMap();
+
+        if (cooldowns.isOnCooldown(CooldownType.SKILL, skillName)) {
+            double currentCooldown = cooldowns.getCooldown(CooldownType.SKILL, skillName);
+            double newCooldown = Math.max(0, currentCooldown - (reduction * 1000));
+
+            // Reapply with reduced time
+            cooldowns.applyCooldown(CooldownType.SKILL, skillName, newCooldown);
+
+            player.sendMessage("Cooldown reduced by " + reduction + " seconds!");
+        }
+    }
+}
+```
+
+## Reading and Writing NBT Data
+
+Access and modify item NBT tags for custom item properties.
+
+```java
+import io.lumine.mythic.lib.api.item.NBTItem;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.entity.Player;
+
+public class NBTExample {
+
+    public void createCustomItem(Player player) {
+        // Create a new item
+        ItemStack item = new ItemStack(Material.DIAMOND_SWORD);
+
+        // Get NBT wrapper
+        NBTItem nbtItem = NBTItem.get(item);
+
+        // Set custom NBT tags
+        nbtItem.setString("CUSTOM_ID", "legendary_sword");
+        nbtItem.setInteger("CUSTOM_LEVEL", 50);
+        nbtItem.setDouble("BONUS_DAMAGE", 25.5);
+        nbtItem.setBoolean("SOULBOUND", true);
+
+        // Set MMOItems-style stats
+        nbtItem.setDouble("MMOITEMS_ATTACK_DAMAGE", 45.0);
+        nbtItem.setDouble("MMOITEMS_CRITICAL_STRIKE_CHANCE", 15.0);
+        nbtItem.setString("MMOITEMS_ITEM_TYPE", "SWORD");
+
+        // Convert back to ItemStack
+        ItemStack finalItem = nbtItem.toItem();
+
+        // Give to player
+        player.getInventory().addItem(finalItem);
+        player.sendMessage("Custom item created!");
+    }
+
+    public void readItemData(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) {
+            return;
+        }
+
+        NBTItem nbtItem = NBTItem.get(item);
+
+        // Check for custom tags
+        if (nbtItem.hasTag("CUSTOM_ID")) {
+            String id = nbtItem.getString("CUSTOM_ID");
+            int level = nbtItem.getInteger("CUSTOM_LEVEL");
+            double damage = nbtItem.getDouble("BONUS_DAMAGE");
+            boolean soulbound = nbtItem.getBoolean("SOULBOUND");
+
+            System.out.println("Custom Item: " + id);
+            System.out.println("Level: " + level);
+            System.out.println("Bonus Damage: " + damage);
+            System.out.println("Soulbound: " + soulbound);
+        }
+
+        // Check if it's an MMOItems item
+        if (nbtItem.hasType()) {
+            String itemType = nbtItem.getType();
+            double attackDamage = nbtItem.getStat("ATTACK_DAMAGE");
+            double critChance = nbtItem.getStat("CRITICAL_STRIKE_CHANCE");
+
+            System.out.println("MMOItems Type: " + itemType);
+            System.out.println("Attack Damage: " + attackDamage);
+            System.out.println("Crit Chance: " + critChance);
+        }
+
+        // Get all NBT tags
+        for (String tag : nbtItem.getTags()) {
+            System.out.println("Tag: " + tag + " = " + nbtItem.get(tag));
+        }
+    }
+
+    public void removeItemTag(ItemStack item, String tagName) {
+        NBTItem nbtItem = NBTItem.get(item);
+
+        if (nbtItem.hasTag(tagName)) {
+            nbtItem.removeTag(tagName);
+            System.out.println("Tag removed: " + tagName);
+        }
+    }
+}
+```
+
+## Creating Custom Skills with Scripts
+
+Define custom skills using YAML configuration files.
+
+```yaml
+# File: plugins/MythicLib/script/custom_skills.yml
+
+# Fireball skill with damage and particles
+fireball_cast:
+    public: true
+    conditions:
+        - 'cooldown{cooldown=5}'  # 5 second cooldown
+        - 'mana{amount=20}'       # Requires 20 mana
+    mechanics:
+        - 'sound{sound=ENTITY_BLAZE_SHOOT;pitch=1.2;volume=1}'
+        - 'projectile{onhit=fireball_hit;ontick=fireball_tick;speed=2;duration=40}'
+
+# When fireball hits entity
+fireball_hit:
+    conditions:
+        - 'can_target'  # Check if target is valid
+    mechanics:
+        - 'damage{amount=30;type=MAGIC,SKILL}'
+        - 'particle{particle=FLAME;amount=50;x=1;y=1;z=1}'
+        - 'particle{particle=LAVA;amount=20}'
+        - 'sound{sound=ENTITY_GENERIC_EXPLODE;volume=1;pitch=0.8}'
+        - 'set_on_fire{duration=5}'
+
+# Particle trail while flying
+fireball_tick:
+    mechanics:
+        - 'particle{particle=FLAME;amount=5;x=0.3;y=0.3;z=0.3}'
+        - 'particle{particle=SMOKE_NORMAL;amount=3}'
+
+# AOE healing skill
+healing_circle:
+    public: true
+    conditions:
+        - 'cooldown{cooldown=10}'
+        - 'mana{amount=30}'
+    mechanics:
+        - 'targeter{type=nearby_entities;range=8;filter=ALLIES}'
+        - 'heal{amount=15}'
+        - 'add_stat{stat=REGENERATION;amount=5;duration=10}'
+        - 'particle{particle=HEART;amount=10;x=1;y=1;z=1}'
+        - 'sound{sound=BLOCK_BEACON_ACTIVATE;volume=1;pitch=1.5}'
+
+# Teleport skill
+blink:
+    public: true
+    conditions:
+        - 'cooldown{cooldown=8}'
+        - 'distance{distance=10;max=true}'  # Max 10 blocks
+    mechanics:
+        - 'particle{particle=PORTAL;amount=30}'
+        - 'sound{sound=ENTITY_ENDERMAN_TELEPORT;volume=1;pitch=1}'
+        - 'teleport{distance=10}'
+        - 'particle{particle=PORTAL;amount=30}'
+        - 'sound{sound=ENTITY_ENDERMAN_TELEPORT;volume=1;pitch=1.2}'
+
+# Damage buff
+power_surge:
+    public: true
+    conditions:
+        - 'cooldown{cooldown=15}'
+    mechanics:
+        - 'add_stat{stat=ATTACK_DAMAGE;amount=10;duration=8}'
+        - 'add_stat{stat=CRITICAL_STRIKE_CHANCE;amount=20;duration=8}'
+        - 'particle{particle=CRIT;amount=20;x=0.5;y=1;z=0.5}'
+        - 'sound{sound=ENTITY_PLAYER_LEVELUP;volume=1;pitch=2}'
+        - 'action_bar{message=&c&lPOWER SURGE ACTIVATED!}'
+```
+
+## Registering Custom Damage Types
+
+Configure damage types and their mappings in the configuration file.
+
+```yaml
+# File: plugins/MythicLib/config.yml
+
+damage_types:
+  # Default damage type assignments
+  default:
+    melee_weapon: [WEAPON, PHYSICAL]
+    melee_unarmed: [UNARMED, PHYSICAL]
+    melee_default: [PHYSICAL]
+    bow: [WEAPON, PROJECTILE, PHYSICAL]
+
+  # Map Bukkit damage causes to MythicLib types
+  bukkit:
+    MAGIC: [MAGIC]
+    DRAGON_BREATH: [MAGIC]
+    POISON: [MAGIC, DOT]
+    WITHER: [MAGIC, DOT]
+    FIRE_TICK: [PHYSICAL, DOT]
+    STARVATION: [DOT]
+    FREEZE: [DOT]
+    FIRE: [PHYSICAL]
+    LAVA: [PHYSICAL]
+    LIGHTNING: [PHYSICAL]
+    FALL: [PHYSICAL]
+    THORNS: [PHYSICAL]
+    ENTITY_EXPLOSION: [PHYSICAL]
+```
+
+## Listening to MythicLib Events
+
+Handle custom events for attacks, mitigation, and player actions.
+
+```java
+import io.lumine.mythic.lib.api.event.PlayerAttackEvent;
+import io.lumine.mythic.lib.api.event.skill.PlayerCastSkillEvent;
+import io.lumine.mythic.lib.api.event.mitigation.PlayerDodgeEvent;
+import io.lumine.mythic.lib.damage.DamageMetadata;
+import io.lumine.mythic.lib.damage.DamageType;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+
+public class MythicLibEventListener implements Listener {
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerAttack(PlayerAttackEvent event) {
+        Player attacker = event.getPlayer();
+        DamageMetadata damage = event.getDamage();
+
+        // Check damage types
+        if (damage.hasType(DamageType.SKILL)) {
+            // Increase skill damage by 20%
+            damage.multiplicativeModifier(DamageType.SKILL, 1.2);
+            attacker.sendMessage("Skill damage bonus applied!");
+        }
+
+        // Check if critical strike
+        if (event.getAttack().getDamage().getCriticalTags().contains("critical")) {
+            damage.additiveModifier(0.5);  // +50% damage on crits
+            attacker.sendMessage("Critical Strike!");
+        }
+
+        // Get total damage being dealt
+        double totalDamage = damage.getDamage();
+        attacker.sendMessage("Dealing " + String.format("%.1f", totalDamage) + " damage");
+    }
+
+    @EventHandler
+    public void onPlayerDodge(PlayerDodgeEvent event) {
+        Player player = event.getPlayer();
+
+        // Player successfully dodged
+        player.sendMessage("You dodged the attack!");
+
+        // Get dodge chance
+        double dodgeChance = event.getChance();
+
+        // Optionally cancel the dodge
+        if (someCondition) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onSkillCast(PlayerCastSkillEvent event) {
+        Player player = event.getPlayer();
+        String skillName = event.getSkill().getHandler().getId();
+
+        player.sendMessage("Casting skill: " + skillName);
+
+        // Modify skill parameters
+        if (event.getSkill().hasModifier("damage")) {
+            double damage = event.getSkill().getModifier("damage");
+            event.getSkill().setModifier("damage", damage * 1.1);  // 10% more damage
+        }
+
+        // Cancel skill cast under certain conditions
+        if (player.getHealth() < 5.0) {
+            event.setCancelled(true);
+            player.sendMessage("Not enough health to cast!");
+        }
+    }
+}
+```
+
+## Configuring Elements
+
+Define custom elemental damage types with unique properties.
+
+```yaml
+# File: plugins/MythicLib/elements.yml
+
+FIRE:
+  name: "Fire"
+  lore:
+    - "&7Deals burning damage over time"
+  color: "&c"
+
+WATER:
+  name: "Water"
+  lore:
+    - "&7Deals frost damage and slows"
+  color: "&9"
+
+LIGHTNING:
+  name: "Lightning"
+  lore:
+    - "&7Strikes with electric energy"
+  color: "&e"
+
+EARTH:
+  name: "Earth"
+  lore:
+    - "&7Crushes with raw force"
+  color: "&2"
+
+WIND:
+  name: "Wind"
+  lore:
+    - "&7Cuts with razor winds"
+  color: "&f"
+```
+
+MythicLib serves as a foundational framework for building complex MMO-style mechanics in Minecraft servers. Its primary use cases include implementing custom RPG systems with advanced stat calculations, creating skill-based combat mechanics with cooldowns and resource management, developing custom items with NBT-based attributes and effects, building elemental damage systems with resistances and weaknesses, and managing player progression with persistent data storage. The library is designed to be extended by other plugins like MMOItems and MMOCore, providing them with a robust infrastructure for handling game mechanics.
+
+Integration with MythicLib follows a plugin dependency pattern where developers add it as a Maven dependency and access its APIs through static managers and player data objects. The library automatically handles version compatibility, player data loading/unloading, stat calculations, damage processing, and event dispatching. External plugins can register custom stat handlers, skill handlers, damage types, and attack handlers to extend the core functionality. The script system allows server administrators to create custom skills using YAML configuration without writing Java code, while developers can implement more complex behaviors by extending the SkillHandler class and registering them with the SkillManager.

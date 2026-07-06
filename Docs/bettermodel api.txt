@@ -1,0 +1,505 @@
+# BetterModel
+
+BetterModel is a server-based engine that provides runtime BlockBench model rendering and animation for Minecraft Java Edition. It implements fully server-side 3D models using item display entity packets, enabling features such as importing Generic BlockBench `.bbmodel` files, auto-generating resource packs, playing animations, syncing with base entities, custom hitboxes, and 12-limb player animation support.
+
+The engine is designed for large-scale servers and MMORPG content creation, with a focus on stability, performance optimization, and minimal network overhead. BetterModel supports multiple server platforms including Paper, Purpur, Spigot, Folia, Leaf, Canvas, and Fabric Loader. The architecture follows a pipeline pattern: Raw data (bbmodel) -> Blueprint (Minecraft model) -> Renderer (creates render pipeline) -> Tracker (schedules rendering and syncs with world/entity).
+
+## Installation
+
+### Gradle (Kotlin)
+
+Add the BetterModel API dependency for Bukkit-based servers:
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly("io.github.toxicity188:bettermodel-bukkit-api:2.0.1")
+}
+```
+
+### Maven
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>io.github.toxicity188</groupId>
+        <artifactId>bettermodel-bukkit-api</artifactId>
+        <version>2.0.1</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+```
+
+## BetterModel - Main API Entry Point
+
+The `BetterModel` class is the main entry point for the API, providing static access to model managers, entity registries, and configuration. It serves as the central hub for retrieving models, limbs, and entity tracker registries.
+
+```java
+import kr.toxicity.model.api.BetterModel;
+import kr.toxicity.model.api.data.renderer.ModelRenderer;
+import kr.toxicity.model.api.tracker.EntityTrackerRegistry;
+
+// Get a model renderer by name (for general models)
+Optional<ModelRenderer> model = BetterModel.model("demon_knight");
+ModelRenderer modelOrNull = BetterModel.modelOrNull("demon_knight");
+
+// Get a player limb renderer by name (for player animations)
+Optional<ModelRenderer> limb = BetterModel.limb("steve");
+ModelRenderer limbOrNull = BetterModel.limbOrNull("steve");
+
+// Get all loaded models and limbs
+Collection<ModelRenderer> allModels = BetterModel.models();
+Collection<ModelRenderer> allLimbs = BetterModel.limbs();
+Set<String> modelKeys = BetterModel.modelKeys();
+Set<String> limbKeys = BetterModel.limbKeys();
+
+// Get entity tracker registry by UUID or entity
+Optional<EntityTrackerRegistry> registry = BetterModel.registry(entity.getUniqueId());
+Optional<EntityTrackerRegistry> registryByEntity = BetterModel.registry(BukkitAdapter.adapt(entity));
+
+// Access platform configuration
+BetterModelConfig config = BetterModel.config();
+```
+
+## ModelRenderer - Creating Trackers
+
+The `ModelRenderer` class creates trackers that manage the lifecycle of models attached to entities or locations. It supports both entity-attached trackers and location-based dummy trackers.
+
+```java
+import kr.toxicity.model.api.BetterModel;
+import kr.toxicity.model.api.bukkit.platform.BukkitAdapter;
+import kr.toxicity.model.api.tracker.EntityTracker;
+import kr.toxicity.model.api.tracker.DummyTracker;
+import kr.toxicity.model.api.tracker.TrackerModifier;
+import kr.toxicity.model.api.tracker.TrackerUpdateAction;
+import kr.toxicity.model.api.profile.ModelProfile;
+
+// Create an entity tracker (attaches model to an entity)
+EntityTracker tracker = BetterModel.model("demon_knight")
+    .map(renderer -> renderer.create(BukkitAdapter.adapt(entity)))
+    .orElse(null);
+
+// Get or create entity tracker (reuses existing if available)
+EntityTracker existingOrNew = BetterModel.model("demon_knight")
+    .map(renderer -> renderer.getOrCreate(BukkitAdapter.adapt(entity)))
+    .orElse(null);
+
+// Create with custom modifier and pre-spawn task
+EntityTracker customTracker = BetterModel.model("demon_knight")
+    .map(renderer -> renderer.create(
+        BukkitAdapter.adapt(entity),
+        TrackerModifier.DEFAULT,
+        t -> t.update(TrackerUpdateAction.tint(0x0026FF))
+    ))
+    .orElse(null);
+
+// Create a dummy tracker (not attached to entity, placed at location)
+DummyTracker dummyTracker = BetterModel.model("demon_knight")
+    .map(renderer -> renderer.create(BukkitAdapter.adapt(location)))
+    .orElse(null);
+
+// Create player model dummy with skin profile
+DummyTracker playerDummy = BetterModel.limb("steve")
+    .map(renderer -> renderer.create(
+        BukkitAdapter.adapt(location),
+        ModelProfile.of(BukkitAdapter.adapt(player))
+    ))
+    .orElse(null);
+```
+
+## Tracker - Animation Control
+
+The `Tracker` class manages animations, bone updates, and player visibility. It provides methods to play, stop, and replace animations with various modifiers.
+
+```java
+import kr.toxicity.model.api.BetterModel;
+import kr.toxicity.model.api.animation.AnimationModifier;
+import kr.toxicity.model.api.animation.AnimationIterator;
+import kr.toxicity.model.api.tracker.Tracker;
+
+// Play animation with default settings
+BetterModel.registry(entity.getUniqueId())
+    .map(reg -> reg.tracker("demon_knight"))
+    .ifPresent(tracker -> tracker.animate("attack"));
+
+// Play animation with modifier and completion callback
+BetterModel.registry(entity.getUniqueId())
+    .map(reg -> reg.tracker("demon_knight"))
+    .ifPresent(tracker -> {
+        tracker.animate("attack", AnimationModifier.DEFAULT_WITH_PLAY_ONCE, () -> {
+            // Called when animation ends
+            System.out.println("Attack animation completed!");
+        });
+    });
+
+// Build custom animation modifier
+AnimationModifier modifier = AnimationModifier.builder()
+    .type(AnimationIterator.Type.PLAY_ONCE)  // LOOP, PLAY_ONCE, HOLD
+    .start(6)        // Lerp-in time (frames)
+    .end(3)          // Lerp-out time (frames)
+    .speed(1.5f)     // Playback speed multiplier
+    .player(BukkitAdapter.adapt(player))  // Per-player animation
+    .build();
+
+tracker.animate("roll", modifier);
+
+// Stop an animation
+tracker.stopAnimation("attack");
+
+// Replace running animation with another
+tracker.replace("idle", "combat_idle", AnimationModifier.DEFAULT);
+
+// Get animation length
+float animationLength = BetterModel.limb("steve")
+    .flatMap(r -> r.animation("roll"))
+    .map(anim -> anim.length())
+    .orElse(0F);
+```
+
+## TrackerUpdateAction - Visual Effects
+
+The `TrackerUpdateAction` interface provides actions to modify model display properties like brightness, glow, tint, and visibility.
+
+```java
+import kr.toxicity.model.api.tracker.TrackerUpdateAction;
+import kr.toxicity.model.api.platform.PlatformBillboard;
+import kr.toxicity.model.api.util.function.BonePredicate;
+
+// Apply tint color (RGB hex)
+tracker.update(TrackerUpdateAction.tint(0xFF0000));  // Red tint
+
+// Reset to previous tint
+tracker.update(TrackerUpdateAction.previousTint());
+
+// Set brightness (block light, sky light)
+tracker.update(TrackerUpdateAction.brightness(15, 15));
+
+// Enable/disable glow effect
+tracker.update(TrackerUpdateAction.glow(true));
+tracker.update(TrackerUpdateAction.glowColor(0x00FF00));  // Green glow
+
+// Enable enchantment glint effect
+tracker.update(TrackerUpdateAction.enchant(true));
+
+// Toggle part visibility
+tracker.update(TrackerUpdateAction.togglePart(false), BonePredicate.name("helmet"));
+
+// Set billboard mode
+tracker.update(TrackerUpdateAction.billboard(PlatformBillboard.CENTER));
+
+// Set view range
+tracker.update(TrackerUpdateAction.viewRange(64.0f));
+
+// Combine multiple actions
+tracker.update(TrackerUpdateAction.composite(
+    TrackerUpdateAction.brightness(15, 15),
+    TrackerUpdateAction.glow(true),
+    TrackerUpdateAction.glowColor(0x0000FF)
+));
+
+// Apply updates to specific bones using predicates
+tracker.update(TrackerUpdateAction.enchant(true), bone -> bone.name().raw().contains("sword"));
+```
+
+## EntityTrackerRegistry - Managing Entity Models
+
+The `EntityTrackerRegistry` manages all trackers attached to a specific entity, handling lifecycle, spawning, and player visibility.
+
+```java
+import kr.toxicity.model.api.BetterModel;
+import kr.toxicity.model.api.tracker.EntityTrackerRegistry;
+import kr.toxicity.model.api.tracker.EntityTracker;
+
+// Get registry for an entity
+EntityTrackerRegistry registry = BetterModel.registry(entity.getUniqueId()).orElse(null);
+
+// Access all trackers on the entity
+Collection<EntityTracker> trackers = registry.trackers();
+
+// Get specific tracker by model name
+EntityTracker tracker = registry.tracker("demon_knight");
+
+// Get first tracker (if any)
+EntityTracker first = registry.first();
+
+// Check if spawned for a player
+boolean isSpawned = registry.isSpawned(BukkitAdapter.adapt(player));
+
+// Spawn model for a player
+registry.spawn(BukkitAdapter.adapt(player));
+
+// Remove a specific model from entity
+registry.remove("demon_knight");
+
+// Close entire registry (removes all models)
+registry.close();
+
+// Reload all trackers
+registry.reload();
+
+// Check for mounted passengers
+boolean hasPassenger = registry.hasPassenger();
+Map<UUID, EntityTrackerRegistry.MountedHitBox> mounted = registry.mountedHitBox();
+
+// Iterate all registries
+EntityTrackerRegistry.registries(reg -> {
+    System.out.println("Entity: " + reg.uuid() + " has " + reg.trackers().size() + " models");
+});
+```
+
+## RenderedBone - Bone Manipulation
+
+The `RenderedBone` class represents individual bones in the model hierarchy, allowing access to world positions, animations, and hitboxes.
+
+```java
+import kr.toxicity.model.api.bone.RenderedBone;
+import kr.toxicity.model.api.animation.RunningAnimation;
+import org.joml.Vector3f;
+
+// Get a bone by name
+RenderedBone bone = tracker.bone("right_arm");
+
+// Get all bones
+Collection<RenderedBone> bones = tracker.bones();
+
+// Find bone by predicate
+RenderedBone headBone = tracker.bone(b -> b.name().raw().equals("head"));
+
+// Get bone's world-relative position
+Vector3f relativePos = bone.hitBoxPosition();
+Location worldLocation = entity.getLocation().add(relativePos.x, relativePos.y, relativePos.z);
+
+// Get currently running animation on bone
+RunningAnimation runningAnimation = bone.runningAnimation();
+if (runningAnimation != null) {
+    String animName = runningAnimation.name();
+    float progress = runningAnimation.progress();
+}
+
+// Get bone's hitbox
+HitBox hitBox = bone.getHitBox();
+if (hitBox != null) {
+    hitBox.mount(BukkitAdapter.adapt(passenger));
+}
+```
+
+## DummyTracker - Static Model Placement
+
+The `DummyTracker` class manages models placed at fixed locations, independent of any entity. Useful for static decorations or script-controlled models.
+
+```java
+import kr.toxicity.model.api.tracker.DummyTracker;
+import kr.toxicity.model.api.bukkit.platform.BukkitAdapter;
+
+// Create dummy tracker at location
+DummyTracker dummy = BetterModel.model("statue")
+    .map(renderer -> renderer.create(BukkitAdapter.adapt(location)))
+    .orElse(null);
+
+// Move the model to new location
+dummy.location(BukkitAdapter.adapt(newLocation));
+
+// Spawn for specific player
+dummy.spawn(BukkitAdapter.adapt(player));
+
+// Play animation
+dummy.animate("idle", AnimationModifier.builder()
+    .type(AnimationIterator.Type.LOOP)
+    .build());
+
+// Hide/Show from player
+dummy.hide(BukkitAdapter.adapt(player));
+dummy.show(BukkitAdapter.adapt(player));
+
+// Close and remove
+dummy.close();
+```
+
+## HitBox - Custom Collision and Mounting
+
+The HitBox system allows creating custom collision boxes and mountable seats on model bones.
+
+```java
+import kr.toxicity.model.api.nms.HitBox;
+import kr.toxicity.model.api.nms.HitBoxListener;
+import kr.toxicity.model.api.util.function.BonePredicate;
+
+// Check if an entity is a hitbox
+if (entity instanceof HitBox hitbox) {
+    Entity sourceEntity = hitbox.source();
+    Optional<EntityTrackerRegistry> sourceRegistry = hitbox.registry();
+}
+
+// Create hitbox with listener
+tracker.createHitBox(BukkitAdapter.adapt(entity), new HitBoxListener() {
+    @Override
+    public void mount(HitBox hitBox, PlatformEntity passenger) {
+        System.out.println(passenger.uuid() + " mounted!");
+    }
+
+    @Override
+    public void dismount(HitBox hitBox, PlatformEntity passenger) {
+        System.out.println(passenger.uuid() + " dismounted!");
+    }
+}, BonePredicate.name("seat"));
+
+// Get existing hitbox
+HitBox hitbox = tracker.hitbox(null, bone -> bone.name().raw().equals("mount_point"));
+if (hitbox != null) {
+    hitbox.mount(BukkitAdapter.adapt(player));
+    hitbox.dismount(BukkitAdapter.adapt(player));
+    hitbox.dismountAll();
+}
+```
+
+## Events - Listening to Model Lifecycle
+
+BetterModel provides events for tracking model creation, spawning, and animation state changes.
+
+```java
+import kr.toxicity.model.api.event.*;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class ModelListener implements Listener {
+
+    @EventHandler
+    public void onTrackerCreate(CreateEntityTrackerEvent event) {
+        EntityTracker tracker = event.tracker();
+        // Add view filter to hide from AFK players
+        tracker.getPipeline().viewFilter(player -> !player.isAfk());
+    }
+
+    @EventHandler
+    public void onModelSpawn(ModelSpawnAtPlayerEvent event) {
+        PlatformPlayer player = event.player();
+        Tracker tracker = event.tracker();
+        System.out.println("Model " + tracker.name() + " spawned for " + player.name());
+    }
+
+    @EventHandler
+    public void onModelDespawn(ModelDespawnAtPlayerEvent event) {
+        // Handle despawn
+    }
+
+    @EventHandler
+    public void onMount(MountModelEvent event) {
+        RenderedBone bone = event.bone();
+        HitBox hitBox = event.hitBox();
+        PlatformEntity passenger = event.entity();
+    }
+
+    @EventHandler
+    public void onDismount(DismountModelEvent event) {
+        // Handle dismount
+    }
+
+    @EventHandler
+    public void onTrackerClose(CloseTrackerEvent event) {
+        Tracker.CloseReason reason = event.reason();
+        // REMOVE, PLUGIN_DISABLE, or DESPAWN
+    }
+}
+```
+
+## MythicMobs Integration
+
+BetterModel provides mechanics for MythicMobs integration, allowing model control through MythicMobs skill configurations.
+
+```yaml
+# Example MythicMobs mob configuration
+ExampleMob:
+  Type: ZOMBIE
+  Display: '&cDemon Knight'
+  Health: 100
+  Skills:
+    - model{m=demon_knight} @self ~onSpawn
+    - state{s=attack;mi=0} @self ~onAttack
+    - tint{c=FF0000;d=10} @self ~onDamaged
+    - partvisibility{p=helmet;v=false} @self ~onTimer:100
+
+# Available mechanics:
+# - model{m=<model_name>} - Apply model to entity
+# - state{s=<animation>;mi=<lerp_in>;mo=<lerp_out>} - Play animation
+# - defaultstate{s=<animation>} - Set default idle animation
+# - partvisibility{p=<part>;v=<true/false>} - Toggle part visibility
+# - changepart{p=<part>;i=<item>} - Change part item
+# - tint{c=<color>;d=<duration>} - Apply color tint
+# - brightness{b=<block>;s=<sky>} - Set brightness
+# - glow{g=<true/false>;c=<color>} - Toggle glow
+# - enchant{e=<true/false>} - Toggle enchant glint
+# - bindhitbox{p=<part>} - Create hitbox on part
+# - mountmodel - Mount target on model
+# - dismountmodel - Dismount from model
+```
+
+## Commands
+
+BetterModel provides in-game commands for testing and managing models.
+
+```bash
+# Reload the plugin and all models
+/bettermodel reload
+
+# Spawn a model on a husk entity
+/bettermodel spawn demon_knight
+
+# Disguise yourself with a model
+/bettermodel disguise demon_knight
+
+# Remove disguise
+/bettermodel undisguise
+
+# Play player animation
+/bettermodel play steve roll
+
+# Test model animation at location
+/bettermodel test demon_knight attack PlayerName 100 64 200
+
+# Check plugin version
+/bettermodel version
+```
+
+## Configuration (config.yml)
+
+```yaml
+# Debug options
+debug:
+  hitbox: false
+  exception: false
+  pack: false
+  tracker: false
+
+# Module toggles
+module:
+  model: true              # Enable entity models
+  player-animation: true   # Enable player animations
+
+# Resource pack settings
+pack:
+  generate-modern-model: true   # For 1.21.4+
+  generate-legacy-model: true   # For <1.21.3
+  use-obfuscation: false
+
+# Performance settings
+sight-trace: true              # Enable sight-trace culling
+max-sight: -1                  # Max packet distance (-1 = unlimited)
+min-sight: 5                   # Min packet distance
+packet-bundling-size: 16       # Packet bundle size
+
+# Resource pack config
+namespace: "bettermodel"
+pack-type: zip                 # folder or zip
+build-folder-location: BetterModel/build
+item: leather_horse_armor
+item-namespace: bm_models
+```
+
+## Summary
+
+BetterModel is a comprehensive server-side model engine that enables rich 3D model rendering and animation in Minecraft Java Edition without requiring client-side mods. The API follows a hierarchical architecture where models are loaded as Renderers, which create Trackers that manage the actual display entities. Entity-attached trackers sync with the base entity's movement and state, while dummy trackers provide static placement capabilities.
+
+Key integration patterns include: using `BetterModel.model()` or `BetterModel.limb()` to obtain renderers, creating trackers via `renderer.create()` or `renderer.getOrCreate()`, controlling animations through `tracker.animate()` with customizable modifiers, and applying visual effects using `TrackerUpdateAction`. The event system allows deep integration with custom plugins, and the MythicMobs compatibility layer enables configuration-based model control for RPG content creation. For high-traffic servers, per-player animation support and optimized packet bundling ensure efficient network utilization.

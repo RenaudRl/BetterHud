@@ -1,0 +1,524 @@
+# LuckPerms
+
+LuckPerms is a powerful permissions management plugin for Minecraft servers that provides fine-grained control over player permissions, groups, and metadata. It serves as the backbone for access control across multiple Minecraft server platforms including Bukkit, BungeeCord, Sponge, Fabric, Forge, NeoForge, Nukkit, and Velocity. The plugin is designed with performance and scalability in mind, supporting various data storage backends and offering both command-line and web-based administration interfaces.
+
+The core functionality revolves around managing permission nodes, which are assigned to users and groups with optional context constraints and expiry times. LuckPerms supports inheritance hierarchies, temporary permissions, prefixes/suffixes, metadata values, and tracks for automatic group promotions/demotions. The comprehensive API allows developers to integrate permission checks, modify user data, listen to permission events, and implement custom context calculators for conditional permission evaluation.
+
+## API Initialization
+
+Get the LuckPerms API instance to access all plugin functionality.
+
+```java
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+
+// Get the API instance (call in onEnable, not constructor)
+LuckPerms luckPerms = LuckPermsProvider.get();
+
+// Get server name (used for server-specific permissions)
+String serverName = luckPerms.getServerName();
+
+// Get platform information
+Platform platform = luckPerms.getPlatform();
+System.out.println("Running on: " + platform.getType().name());
+
+// Get plugin version
+PluginMetadata metadata = luckPerms.getPluginMetadata();
+System.out.println("LuckPerms version: " + metadata.getVersion());
+```
+
+## User Permission Management
+
+Load users, check permissions, and modify user permission data.
+
+```java
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.model.user.UserManager;
+import net.luckperms.api.node.Node;
+import net.luckperms.api.node.types.PermissionNode;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+UserManager userManager = luckPerms.getUserManager();
+UUID playerUuid = UUID.fromString("c1d60c50-70b5-4722-8057-87767557e50d");
+
+// Load a user (returns CompletableFuture for async operation)
+CompletableFuture<User> userFuture = userManager.loadUser(playerUuid, "Notch");
+
+userFuture.thenAcceptAsync(user -> {
+    // Check if user has a permission
+    boolean hasPermission = user.getCachedData()
+        .getPermissionData()
+        .checkPermission("minecraft.command.gamemode")
+        .asBoolean();
+
+    // Add a permission node
+    Node node = PermissionNode.builder("essentials.fly")
+        .value(true)
+        .build();
+    user.data().add(node);
+
+    // Add temporary permission (expires in 1 hour)
+    Node tempNode = PermissionNode.builder("vip.access")
+        .expiry(Duration.ofHours(1))
+        .build();
+    user.data().add(tempNode);
+
+    // Save changes back to storage
+    userManager.saveUser(user).thenRun(() -> {
+        System.out.println("User permissions updated successfully");
+    });
+});
+
+// Modify user inline (load, modify, save in one operation)
+userManager.modifyUser(playerUuid, user -> {
+    user.data().add(PermissionNode.builder("custom.permission").build());
+}).thenRun(() -> {
+    System.out.println("Permission added and saved");
+});
+```
+
+## Group Management
+
+Create and manage permission groups with inheritance.
+
+```java
+import net.luckperms.api.model.group.Group;
+import net.luckperms.api.model.group.GroupManager;
+import net.luckperms.api.node.types.InheritanceNode;
+
+GroupManager groupManager = luckPerms.getGroupManager();
+
+// Get or create a group
+CompletableFuture<Group> groupFuture = groupManager.loadGroup("moderator");
+
+groupFuture.thenAcceptAsync(group -> {
+    // Add permission to group
+    group.data().add(PermissionNode.builder("worldedit.use").build());
+    group.data().add(PermissionNode.builder("essentials.kick").build());
+
+    // Add prefix/suffix
+    group.data().add(PrefixNode.builder("[MOD] ", 100).build());
+    group.data().add(SuffixNode.builder(" (Staff)", 50).build());
+
+    // Make group inherit from another group
+    group.data().add(InheritanceNode.builder("default").build());
+
+    // Save the group
+    groupManager.saveGroup(group).thenRun(() -> {
+        System.out.println("Group updated");
+    });
+});
+
+// Add user to a group
+userManager.modifyUser(playerUuid, user -> {
+    user.data().add(InheritanceNode.builder(groupManager.getGroup("moderator")).build());
+});
+
+// Set primary group
+User user = userManager.getUser(playerUuid);
+if (user != null) {
+    user.setPrimaryGroup("moderator");
+    userManager.saveUser(user);
+}
+```
+
+## Context-Based Permissions
+
+Apply permissions conditionally based on context (world, server, gamemode, etc.).
+
+```java
+import net.luckperms.api.context.ImmutableContextSet;
+import net.luckperms.api.context.ContextSet;
+import net.luckperms.api.context.MutableContextSet;
+import net.luckperms.api.context.DefaultContextKeys;
+
+// Create context for world-specific permission
+MutableContextSet context = luckPerms.getContextManager()
+    .getContextSetFactory()
+    .mutableEmpty();
+context.add(DefaultContextKeys.WORLD_KEY, "world_nether");
+context.add(DefaultContextKeys.SERVER_KEY, "survival");
+
+// Add permission that only applies in specific world
+Node worldPermission = PermissionNode.builder("special.ability")
+    .context(context)
+    .build();
+
+userManager.modifyUser(playerUuid, user -> {
+    user.data().add(worldPermission);
+});
+
+// Check permission with specific context
+User user = userManager.getUser(playerUuid);
+if (user != null) {
+    QueryOptions queryOptions = luckPerms.getContextManager()
+        .queryOptionsBuilder(QueryMode.CONTEXTUAL)
+        .context(context.immutableCopy())
+        .build();
+
+    boolean hasPermInWorld = user.getCachedData()
+        .getPermissionData(queryOptions)
+        .checkPermission("special.ability")
+        .asBoolean();
+}
+```
+
+## Custom Context Calculator
+
+Register custom context calculators for dynamic permission evaluation.
+
+```java
+import net.luckperms.api.context.ContextCalculator;
+import net.luckperms.api.context.ContextConsumer;
+import net.luckperms.api.context.ContextManager;
+import org.bukkit.entity.Player;
+
+public class CustomContextCalculator implements ContextCalculator<Player> {
+
+    @Override
+    public void calculate(Player target, ContextConsumer consumer) {
+        // Add custom context based on player health
+        if (target.getHealth() < 5.0) {
+            consumer.accept("health", "low");
+        } else {
+            consumer.accept("health", "normal");
+        }
+
+        // Add context based on player location
+        if (target.getLocation().getY() > 100) {
+            consumer.accept("altitude", "high");
+        }
+
+        // Add custom game state
+        consumer.accept("pvp_zone", isInPvPZone(target) ? "true" : "false");
+    }
+
+    private boolean isInPvPZone(Player player) {
+        // Your custom logic here
+        return player.getWorld().getName().equals("pvp_arena");
+    }
+}
+
+// Register the calculator
+ContextManager contextManager = luckPerms.getContextManager();
+contextManager.registerCalculator(new CustomContextCalculator());
+
+// Now you can assign permissions based on these contexts
+Node healthPermission = PermissionNode.builder("protection.enabled")
+    .context(ImmutableContextSet.builder()
+        .add("health", "low")
+        .build())
+    .build();
+```
+
+## Event Listening
+
+Subscribe to LuckPerms events to track permission changes.
+
+```java
+import net.luckperms.api.event.EventBus;
+import net.luckperms.api.event.user.UserDataRecalculateEvent;
+import net.luckperms.api.event.node.NodeAddEvent;
+import net.luckperms.api.event.user.UserLoadEvent;
+import net.luckperms.api.event.group.GroupDataRecalculateEvent;
+
+EventBus eventBus = luckPerms.getEventBus();
+
+// Listen for when a node is added to any holder
+eventBus.subscribe(NodeAddEvent.class, event -> {
+    Node node = event.getNode();
+    PermissionHolder target = event.getTarget();
+
+    if (target instanceof User) {
+        User user = (User) target;
+        System.out.println("Permission " + node.getKey() +
+                          " added to user " + user.getUsername());
+    }
+});
+
+// Listen for user data recalculation (happens after permission changes)
+eventBus.subscribe(UserDataRecalculateEvent.class, event -> {
+    User user = event.getUser();
+    System.out.println("Recalculated permissions for: " + user.getUsername());
+});
+
+// Listen for when user data is loaded
+eventBus.subscribe(UserLoadEvent.class, event -> {
+    User user = event.getUser();
+    System.out.println("User loaded: " + user.getUniqueId());
+
+    // You can modify user data here if needed
+    if (!user.data().contains(PermissionNode.builder("default.permission").build()).asBoolean()) {
+        user.data().add(PermissionNode.builder("default.permission").build());
+    }
+});
+
+// Subscribe with automatic cleanup when plugin disables
+eventBus.subscribe(myPluginInstance, NodeAddEvent.class, event -> {
+    // This subscription will automatically unregister when myPluginInstance disables
+    System.out.println("Node added: " + event.getNode().getKey());
+});
+```
+
+## Track Management
+
+Manage promotion/demotion tracks for automatic group progression.
+
+```java
+import net.luckperms.api.track.Track;
+import net.luckperms.api.track.TrackManager;
+import net.luckperms.api.track.PromotionResult;
+import net.luckperms.api.track.DemotionResult;
+
+TrackManager trackManager = luckPerms.getTrackManager();
+
+// Create or load a track
+trackManager.loadTrack("staff").thenAcceptAsync(track -> {
+    // Define the track hierarchy
+    track.setGroups(List.of("helper", "moderator", "admin", "owner"));
+
+    // Save the track
+    trackManager.saveTrack(track).thenRun(() -> {
+        System.out.println("Track created");
+    });
+});
+
+// Promote a user along the track
+Track staffTrack = trackManager.getTrack("staff");
+User user = userManager.getUser(playerUuid);
+
+if (staffTrack != null && user != null) {
+    PromotionResult result = staffTrack.promote(user);
+
+    switch (result.getStatus()) {
+        case SUCCESS:
+            System.out.println("Promoted from " + result.getGroupFrom().orElse(null) +
+                             " to " + result.getGroupTo().orElse(null));
+            userManager.saveUser(user);
+            break;
+        case ALREADY_ON_HIGHEST_GROUP:
+            System.out.println("User is already at the highest rank");
+            break;
+        case AMBIGUOUS_CALL:
+            System.out.println("User is in multiple groups on this track");
+            break;
+    }
+}
+
+// Demote a user
+DemotionResult demoteResult = staffTrack.demote(user);
+if (demoteResult.getStatus() == DemotionResult.Status.SUCCESS) {
+    userManager.saveUser(user);
+}
+```
+
+## Node Building and Manipulation
+
+Build complex permission nodes with metadata, contexts, and expiry.
+
+```java
+import net.luckperms.api.node.NodeBuilder;
+import net.luckperms.api.node.types.MetaNode;
+import net.luckperms.api.node.types.DisplayNameNode;
+import net.luckperms.api.node.types.WeightNode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
+// Build a basic permission node
+Node basicNode = Node.builder("custom.permission")
+    .value(true)
+    .build();
+
+// Build with context and expiry
+Node complexNode = Node.builder("vip.fly")
+    .value(true)
+    .context(ImmutableContextSet.builder()
+        .add("world", "world_creative")
+        .add("server", "creative")
+        .build())
+    .expiry(Instant.now().plus(30, ChronoUnit.DAYS))
+    .build();
+
+// Negated permission (explicitly deny)
+Node denyNode = Node.builder("harmful.command")
+    .value(false)
+    .build();
+
+// Meta nodes (key-value data)
+Node metaNode = MetaNode.builder("player_title", "Legendary Player").build();
+Node rankNode = MetaNode.builder("rank", "10").build();
+
+// Weight node (for priority ordering)
+Node weightNode = WeightNode.builder(100).build();
+
+// Display name node
+Node displayNameNode = DisplayNameNode.builder("Administrator").build();
+
+// Add all to a group
+Group vipGroup = groupManager.getGroup("vip");
+if (vipGroup != null) {
+    vipGroup.data().add(metaNode);
+    vipGroup.data().add(weightNode);
+    vipGroup.data().add(displayNameNode);
+    groupManager.saveGroup(vipGroup);
+}
+
+// Check if node exists and remove
+User user = userManager.getUser(playerUuid);
+if (user != null) {
+    if (user.data().contains(complexNode, NodeEqualityPredicate.EXACT).asBoolean()) {
+        user.data().remove(complexNode);
+    }
+
+    // Clear all nodes in specific context
+    user.data().clear(ImmutableContextSet.builder()
+        .add("world", "old_world")
+        .build());
+
+    // Remove all temporary permissions
+    user.data().clear(node -> node.hasExpiry());
+
+    userManager.saveUser(user);
+}
+```
+
+## Player Adapter Integration
+
+Convert platform-specific player objects to LuckPerms Users.
+
+```java
+import net.luckperms.api.platform.PlayerAdapter;
+import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
+
+// Get the player adapter for your platform
+PlayerAdapter<Player> playerAdapter = luckPerms.getPlayerAdapter(Player.class);
+
+// Get online player from Bukkit
+Player bukkitPlayer = Bukkit.getPlayer("Notch");
+
+if (bukkitPlayer != null) {
+    // Convert to LuckPerms User
+    User user = playerAdapter.getUser(bukkitPlayer);
+
+    // Get user's current context
+    ImmutableContextSet context = playerAdapter.getContext(bukkitPlayer);
+    System.out.println("Player contexts: " + context);
+
+    // Get query options for this player
+    QueryOptions queryOptions = playerAdapter.getQueryOptions(bukkitPlayer);
+
+    // Check permission with player's current context
+    boolean canFly = user.getCachedData()
+        .getPermissionData(queryOptions)
+        .checkPermission("essentials.fly")
+        .asBoolean();
+
+    // Get player's meta data
+    String prefix = user.getCachedData()
+        .getMetaData(queryOptions)
+        .getPrefix();
+
+    String suffix = user.getCachedData()
+        .getMetaData(queryOptions)
+        .getSuffix();
+
+    // Get custom meta value
+    String customValue = user.getCachedData()
+        .getMetaData(queryOptions)
+        .getMetaValue("custom_key");
+
+    System.out.println("Prefix: " + prefix + ", Suffix: " + suffix);
+}
+```
+
+## Querying Permissions Across Users
+
+Search for users with specific permissions or nodes.
+
+```java
+import net.luckperms.api.node.matcher.NodeMatcher;
+import net.luckperms.api.node.matcher.NodeMatcherFactory;
+
+NodeMatcherFactory matcherFactory = luckPerms.getNodeMatcherFactory();
+
+// Search for all users with a specific permission
+NodeMatcher<PermissionNode> matcher = matcherFactory.key("admin.access");
+
+userManager.searchAll(matcher).thenAcceptAsync(results -> {
+    results.forEach((uuid, nodes) -> {
+        System.out.println("User " + uuid + " has admin.access");
+        nodes.forEach(node -> {
+            System.out.println("  Context: " + node.getContexts());
+            System.out.println("  Value: " + node.getValue());
+            System.out.println("  Expiry: " + node.getExpiry());
+        });
+    });
+});
+
+// Get all users with permissions matching a pattern
+NodeMatcher<PermissionNode> prefixMatcher = matcherFactory.keyStartsWith("essentials.");
+userManager.searchAll(prefixMatcher).thenAcceptAsync(results -> {
+    System.out.println("Found " + results.size() + " users with essentials permissions");
+});
+
+// Get all unique users (not just default group members)
+userManager.getUniqueUsers().thenAcceptAsync(uuids -> {
+    System.out.println("Total unique users: " + uuids.size());
+});
+
+// Get all currently loaded users
+Set<User> loadedUsers = userManager.getLoadedUsers();
+loadedUsers.forEach(user -> {
+    System.out.println(user.getUsername() + " is currently loaded");
+});
+```
+
+## Maven Dependency Configuration
+
+Add LuckPerms API to your project for development.
+
+```xml
+<project>
+    <repositories>
+        <repository>
+            <id>sonatype</id>
+            <url>https://repo1.maven.org/maven2/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>net.luckperms</groupId>
+            <artifactId>api</artifactId>
+            <version>5.5</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+```gradle
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly 'net.luckperms:api:5.5'
+}
+```
+
+```yaml
+# plugin.yml (Bukkit)
+name: MyPlugin
+version: 1.0
+main: com.example.MyPlugin
+depend: [LuckPerms]
+```
+
+## Summary
+
+LuckPerms provides a comprehensive and flexible permission management system for Minecraft servers with extensive API support for third-party integration. The primary use cases include checking player permissions in real-time, dynamically modifying user and group permissions based on in-game actions, implementing context-aware permission systems that respond to world locations or game states, and listening to permission events for audit logging or synchronized systems. The API supports both synchronous operations for online players and asynchronous CompletableFuture-based operations for database interactions, ensuring non-blocking performance in production environments.
+
+Integration patterns center around obtaining the LuckPerms API instance through LuckPermsProvider.get() in plugin initialization, using UserManager and GroupManager for CRUD operations on permission holders, leveraging the PlayerAdapter for platform-specific conversions, and subscribing to events via EventBus for reactive permission monitoring. The context system enables sophisticated conditional permissions through custom ContextCalculators, while the Track API facilitates automated group progression systems. Developers should always save changes using saveUser() or saveGroup() to persist modifications, handle CompletableFutures appropriately to avoid blocking the main server thread, and utilize the rich node building system to create complex permission structures with metadata, expiry times, and contextual constraints.

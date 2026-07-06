@@ -60,6 +60,7 @@ class BetterHudImpl(val bootstrap: BetterHudBootstrap) : BetterHud {
             HudManagerImpl,
             PopupManagerImpl,
             CompassManagerImpl,
+            MinimapManagerImpl,
 
             ShaderManagerImpl,
             PlayerManagerImpl,
@@ -204,6 +205,7 @@ class BetterHudImpl(val bootstrap: BetterHudBootstrap) : BetterHud {
     override fun getTriggerManager(): TriggerManager = TriggerManagerImpl
     override fun getHudManager(): HudManager = HudManagerImpl
     override fun getDatabaseManager(): DatabaseManager = DatabaseManagerImpl
+    override fun getMinimapManager(): MinimapManager = MinimapManagerImpl
     override fun getShaderManager(): ShaderManager = ShaderManagerImpl
     override fun getCompassManager(): CompassManager = CompassManagerImpl
     override fun getConfigManager(): ConfigManager = ConfigManagerImpl

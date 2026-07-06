@@ -1,0 +1,715 @@
+# Advanced Slime Paper (ASP) API Documentation
+
+Advanced Slime Paper is a high-performance Minecraft server implementation that integrates the Slime Region Format (SRF) directly into Paper. Originally developed by Hypixel, the SRF enables ultra-fast world loading and significant storage space savings by storing only modified chunks in a compressed binary format. ASP transforms this from a plugin architecture into a native server fork, providing server administrators with seamless world management capabilities, instant world cloning, and efficient multi-world support.
+
+ASP extends Paper's functionality with a comprehensive API for programmatic world management. The system supports multiple data source backends including file systems, MySQL databases, and Redis, allowing worlds to be persisted and loaded from various storage solutions. Worlds can be created from scratch, imported from vanilla Minecraft worlds, or cloned from existing SRF worlds. The API provides full control over world properties, chunk data, and runtime behavior, making it ideal for minigame servers, lobby systems, and any application requiring rapid world instantiation.
+
+## API Access
+
+Retrieving the ASP API instance
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+
+// Get the API instance
+AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+```
+
+## Loading Worlds from Data Sources
+
+Reading and loading a world from a configured SlimeLoader
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.exceptions.*;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeWorldInstance;
+import com.infernalsuite.asp.api.world.properties.SlimePropertyMap;
+import com.infernalsuite.asp.api.world.properties.SlimeProperties;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import java.io.File;
+import java.io.IOException;
+
+public class WorldLoadExample {
+    public void loadWorld() {
+        try {
+            AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+
+            // Create a file-based loader
+            SlimeLoader loader = new FileLoader(new File("slime_worlds"));
+
+            // Configure world properties
+            SlimePropertyMap properties = new SlimePropertyMap();
+            properties.setValue(SlimeProperties.SPAWN_X, 0);
+            properties.setValue(SlimeProperties.SPAWN_Y, 64);
+            properties.setValue(SlimeProperties.SPAWN_Z, 0);
+            properties.setValue(SlimeProperties.DIFFICULTY, "normal");
+            properties.setValue(SlimeProperties.ALLOW_MONSTERS, true);
+            properties.setValue(SlimeProperties.PVP, true);
+
+            // Read the world from storage (does not load it into the server)
+            SlimeWorld world = api.readWorld(loader, "my_world", false, properties);
+
+            // Load the world into the server (must be called on main thread)
+            SlimeWorldInstance instance = api.loadWorld(world, true);
+
+            System.out.println("World loaded: " + instance.getName());
+
+        } catch (UnknownWorldException e) {
+            System.err.println("World not found: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("IO error loading world: " + e.getMessage());
+        } catch (CorruptedWorldException e) {
+            System.err.println("World data is corrupted: " + e.getMessage());
+        } catch (NewerFormatException e) {
+            System.err.println("World format too new: " + e.getMessage());
+        }
+    }
+}
+```
+
+## Creating Empty Worlds
+
+Generating a new empty world with custom properties
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeWorldInstance;
+import com.infernalsuite.asp.api.world.properties.SlimePropertyMap;
+import com.infernalsuite.asp.api.world.properties.SlimeProperties;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import java.io.File;
+import java.io.IOException;
+
+public class CreateWorldExample {
+    public void createEmptyWorld() {
+        try {
+            AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+            SlimeLoader loader = new FileLoader(new File("slime_worlds"));
+
+            // Configure properties for the new world
+            SlimePropertyMap properties = new SlimePropertyMap();
+            properties.setValue(SlimeProperties.SPAWN_X, 0);
+            properties.setValue(SlimeProperties.SPAWN_Y, 100);
+            properties.setValue(SlimeProperties.SPAWN_Z, 0);
+            properties.setValue(SlimeProperties.ENVIRONMENT, "normal");
+            properties.setValue(SlimeProperties.WORLD_TYPE, "flat");
+            properties.setValue(SlimeProperties.DEFAULT_BIOME, "minecraft:plains");
+            properties.setValue(SlimeProperties.DIFFICULTY, "easy");
+
+            // Create the empty world (not yet loaded or saved)
+            SlimeWorld world = api.createEmptyWorld("new_world", false, properties, loader);
+
+            // Load it into the server
+            SlimeWorldInstance instance = api.loadWorld(world, true);
+
+            // Save it to the data source
+            api.saveWorld(world);
+
+            System.out.println("Empty world created and loaded: " + instance.getName());
+
+        } catch (IOException e) {
+            System.err.println("Failed to create world: " + e.getMessage());
+        }
+    }
+}
+```
+
+## Importing Vanilla Worlds
+
+Converting existing Minecraft worlds to Slime format
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.exceptions.*;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeWorldInstance;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import java.io.File;
+import java.io.IOException;
+
+public class ImportWorldExample {
+    public void importVanillaWorld() {
+        try {
+            AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+            SlimeLoader loader = new FileLoader(new File("slime_worlds"));
+
+            File vanillaWorldDir = new File("world_to_import");
+
+            // Convert vanilla world to SRF format
+            SlimeWorld world = api.readVanillaWorld(
+                vanillaWorldDir,
+                "imported_world",
+                loader
+            );
+
+            // Load the converted world
+            SlimeWorldInstance instance = api.loadWorld(world, true);
+
+            // Save to storage
+            api.saveWorld(world);
+
+            System.out.println("Vanilla world imported: " + instance.getName());
+
+        } catch (InvalidWorldException e) {
+            System.err.println("Invalid world directory: " + e.getMessage());
+        } catch (WorldLoadedException e) {
+            System.err.println("World is currently loaded: " + e.getMessage());
+        } catch (WorldTooBigException e) {
+            System.err.println("World too large to import: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("IO error: " + e.getMessage());
+        } catch (WorldAlreadyExistsException e) {
+            System.err.println("World already exists: " + e.getMessage());
+        }
+    }
+}
+```
+
+## Cloning Worlds
+
+Creating world instances by cloning existing worlds
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.exceptions.*;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeWorldInstance;
+import com.infernalsuite.asp.api.world.properties.SlimePropertyMap;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import java.io.File;
+import java.io.IOException;
+
+public class CloneWorldExample {
+    public void cloneWorld() {
+        try {
+            AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+            SlimeLoader loader = new FileLoader(new File("slime_worlds"));
+
+            // Read the template world
+            SlimeWorld template = api.readWorld(
+                loader,
+                "template_world",
+                true, // Read-only
+                new SlimePropertyMap()
+            );
+
+            // Clone as temporary world (read-only, no loader)
+            SlimeWorld tempClone = template.clone("game_instance_1");
+
+            // Clone and persist to storage
+            SlimeWorld persistedClone = template.clone("persistent_clone", loader);
+
+            // Load the temporary clone
+            SlimeWorldInstance instance = api.loadWorld(tempClone, false);
+
+            System.out.println("World cloned: " + instance.getName());
+
+        } catch (UnknownWorldException e) {
+            System.err.println("Template world not found: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("IO error: " + e.getMessage());
+        } catch (CorruptedWorldException | NewerFormatException e) {
+            System.err.println("World read error: " + e.getMessage());
+        } catch (WorldAlreadyExistsException e) {
+            System.err.println("Clone already exists: " + e.getMessage());
+        }
+    }
+}
+```
+
+## File Loader Configuration
+
+Using the file-based storage backend for worlds
+
+```java
+import com.infernalsuite.asp.api.exceptions.UnknownWorldException;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+
+public class FileLoaderExample {
+    public void useFileLoader() {
+        try {
+            // Create loader pointing to a directory
+            FileLoader loader = new FileLoader(new File("slime_worlds"));
+
+            // Check if a world exists
+            boolean exists = loader.worldExists("my_world");
+            System.out.println("World exists: " + exists);
+
+            // List all worlds
+            List<String> worlds = loader.listWorlds();
+            System.out.println("Available worlds: " + worlds);
+
+            // Read world data
+            byte[] worldData = loader.readWorld("my_world");
+            System.out.println("World data size: " + worldData.length + " bytes");
+
+            // Save world data
+            loader.saveWorld("my_world", worldData);
+
+            // Delete a world
+            loader.deleteWorld("old_world");
+
+        } catch (IllegalStateException e) {
+            System.err.println("Failed to initialize loader: " + e.getMessage());
+        } catch (UnknownWorldException e) {
+            System.err.println("World not found: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("IO error: " + e.getMessage());
+        }
+    }
+}
+```
+
+## MySQL Loader Configuration
+
+Using MySQL as a world storage backend
+
+```java
+import com.infernalsuite.asp.api.exceptions.UnknownWorldException;
+import com.infernalsuite.asp.loaders.mysql.MysqlLoader;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.List;
+
+public class MysqlLoaderExample {
+    public void useMysqlLoader() {
+        try {
+            // Create MySQL loader with connection details
+            MysqlLoader loader = new MysqlLoader(
+                "jdbc:mysql://{host}:{port}/{database}?autoReconnect=true&useSSL={usessl}",
+                "localhost",
+                3306,
+                "slime_worlds",
+                false, // useSSL
+                "username",
+                "password"
+            );
+
+            // List worlds in database
+            List<String> worlds = loader.listWorlds();
+            System.out.println("Worlds in MySQL: " + worlds);
+
+            // Check existence
+            if (loader.worldExists("arena_1")) {
+                byte[] data = loader.readWorld("arena_1");
+                System.out.println("Loaded world: " + data.length + " bytes");
+            }
+
+            // Save world
+            byte[] worldData = new byte[1024]; // Your serialized world
+            loader.saveWorld("new_arena", worldData);
+
+        } catch (SQLException e) {
+            System.err.println("Database connection failed: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("IO error: " + e.getMessage());
+        } catch (UnknownWorldException e) {
+            System.err.println("World not found: " + e.getMessage());
+        }
+    }
+}
+```
+
+## Redis Loader Configuration
+
+Using Redis for distributed world storage
+
+```java
+import com.infernalsuite.asp.api.exceptions.UnknownWorldException;
+import com.infernalsuite.asp.loaders.redis.RedisLoader;
+import java.io.IOException;
+import java.util.List;
+
+public class RedisLoaderExample {
+    public void useRedisLoader() {
+        try {
+            // Create Redis loader with URI
+            RedisLoader loader = new RedisLoader("redis://localhost:6379");
+
+            // List all worlds
+            List<String> worlds = loader.listWorlds();
+            System.out.println("Worlds in Redis: " + worlds);
+
+            // Check if world exists
+            if (loader.worldExists("lobby")) {
+                byte[] worldData = loader.readWorld("lobby");
+                System.out.println("Loaded from Redis: " + worldData.length + " bytes");
+            }
+
+            // Save world
+            byte[] data = new byte[2048]; // Your serialized world
+            loader.saveWorld("minigame_1", data);
+
+            // Delete world
+            loader.deleteWorld("old_minigame");
+
+        } catch (UnknownWorldException e) {
+            System.err.println("World not found: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("Redis error: " + e.getMessage());
+        }
+    }
+}
+```
+
+## World Property Configuration
+
+Configuring world properties using SlimePropertyMap
+
+```java
+import com.infernalsuite.asp.api.world.properties.SlimePropertyMap;
+import com.infernalsuite.asp.api.world.properties.SlimeProperties;
+
+public class PropertyExample {
+    public SlimePropertyMap configureProperties() {
+        SlimePropertyMap properties = new SlimePropertyMap();
+
+        // Spawn location
+        properties.setValue(SlimeProperties.SPAWN_X, 0);
+        properties.setValue(SlimeProperties.SPAWN_Y, 64);
+        properties.setValue(SlimeProperties.SPAWN_Z, 0);
+        properties.setValue(SlimeProperties.SPAWN_YAW, 90.0f);
+
+        // World settings
+        properties.setValue(SlimeProperties.DIFFICULTY, "hard");
+        properties.setValue(SlimeProperties.ENVIRONMENT, "normal");
+        properties.setValue(SlimeProperties.WORLD_TYPE, "default");
+        properties.setValue(SlimeProperties.DEFAULT_BIOME, "minecraft:plains");
+
+        // Mob spawning
+        properties.setValue(SlimeProperties.ALLOW_MONSTERS, true);
+        properties.setValue(SlimeProperties.ALLOW_ANIMALS, true);
+        properties.setValue(SlimeProperties.PVP, true);
+
+        // Advanced features
+        properties.setValue(SlimeProperties.SAVE_POI, false);
+        properties.setValue(SlimeProperties.SAVE_BLOCK_TICKS, false);
+        properties.setValue(SlimeProperties.SAVE_FLUID_TICKS, false);
+        properties.setValue(SlimeProperties.DRAGON_BATTLE, false);
+
+        // Chunk settings (experimental)
+        properties.setValue(SlimeProperties.CHUNK_PRUNING, "aggressive");
+        properties.setValue(SlimeProperties.CHUNK_SECTION_MIN, -4);
+        properties.setValue(SlimeProperties.CHUNK_SECTION_MAX, 19);
+        properties.setValue(SlimeProperties.SEA_LEVEL, 63);
+
+        // Get values
+        int spawnX = properties.getValue(SlimeProperties.SPAWN_X);
+        String difficulty = properties.getValue(SlimeProperties.DIFFICULTY);
+
+        return properties;
+    }
+}
+```
+
+## Saving and Migrating Worlds
+
+Persisting worlds and migrating between data sources
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.exceptions.*;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import com.infernalsuite.asp.loaders.mysql.MysqlLoader;
+import java.io.File;
+import java.io.IOException;
+import java.sql.SQLException;
+
+public class SaveMigrateExample {
+    public void saveAndMigrate() {
+        try {
+            AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+
+            // Get a loaded world
+            SlimeWorld world = api.getLoadedWorld("my_world");
+
+            // Save the world to its configured loader
+            api.saveWorld(world);
+            System.out.println("World saved successfully");
+
+            // Migrate from file to MySQL
+            SlimeLoader fileLoader = new FileLoader(new File("slime_worlds"));
+            SlimeLoader mysqlLoader = new MysqlLoader(
+                "jdbc:mysql://{host}:{port}/{database}?autoReconnect=true&useSSL={usessl}",
+                "localhost",
+                3306,
+                "slime_db",
+                false,
+                "user",
+                "pass"
+            );
+
+            // Perform migration
+            api.migrateWorld("my_world", fileLoader, mysqlLoader);
+            System.out.println("World migrated from file to MySQL");
+
+        } catch (IOException e) {
+            System.err.println("Failed to save/migrate: " + e.getMessage());
+        } catch (WorldAlreadyExistsException e) {
+            System.err.println("World already exists in target: " + e.getMessage());
+        } catch (UnknownWorldException e) {
+            System.err.println("Source world not found: " + e.getMessage());
+        } catch (SQLException e) {
+            System.err.println("Database error: " + e.getMessage());
+        }
+    }
+}
+```
+
+## Working with Loaded Worlds
+
+Managing worlds after they've been loaded into the server
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeWorldInstance;
+import org.bukkit.World;
+import java.util.List;
+
+public class LoadedWorldExample {
+    public void workWithLoadedWorlds() {
+        AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+
+        // Get a specific loaded world
+        SlimeWorldInstance world = api.getLoadedWorld("my_world");
+        if (world != null) {
+            System.out.println("World loaded: " + world.getName());
+            System.out.println("Data version: " + world.getDataVersion());
+            System.out.println("Read-only: " + world.isReadOnly());
+
+            // Access the Bukkit world instance
+            World bukkitWorld = world.getBukkitWorld();
+            System.out.println("Bukkit world: " + bukkitWorld.getName());
+            System.out.println("Players: " + bukkitWorld.getPlayers().size());
+
+            // Get a serializable copy for saving
+            SlimeWorld serializableCopy = world.getSerializableCopy();
+            System.out.println("Created serializable copy");
+        }
+
+        // Get all loaded worlds
+        List<SlimeWorldInstance> loadedWorlds = api.getLoadedWorlds();
+        System.out.println("Total loaded worlds: " + loadedWorlds.size());
+        for (SlimeWorldInstance instance : loadedWorlds) {
+            System.out.println("- " + instance.getName());
+        }
+
+        // Check if a world is loaded
+        boolean isLoaded = api.worldLoaded(world);
+        System.out.println("Is loaded: " + isLoaded);
+    }
+}
+```
+
+## Accessing Chunk Data
+
+Reading chunk information from SlimeWorld instances
+
+```java
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeChunk;
+import com.infernalsuite.asp.api.world.SlimeChunkSection;
+import net.kyori.adventure.nbt.BinaryTag;
+import net.kyori.adventure.nbt.CompoundBinaryTag;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentMap;
+
+public class ChunkAccessExample {
+    public void accessChunkData(SlimeWorld world) {
+        // Get a specific chunk
+        SlimeChunk chunk = world.getChunk(0, 0);
+        if (chunk != null) {
+            System.out.println("Chunk at 0,0: " + chunk);
+        }
+
+        // Get all chunks
+        Collection<SlimeChunk> chunks = world.getChunkStorage();
+        System.out.println("Total chunks: " + chunks.size());
+
+        // Access extra data
+        ConcurrentMap<String, BinaryTag> extraData = world.getExtraData();
+        extraData.put("custom_data", CompoundBinaryTag.empty());
+
+        // Access world maps
+        Collection<CompoundBinaryTag> maps = world.getWorldMaps();
+        System.out.println("World maps: " + maps.size());
+    }
+}
+```
+
+## Advanced Serialization (Experimental)
+
+Using the SlimeSerializationAdapter for manual world serialization
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.exceptions.*;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.loaders.SlimeSerializationAdapter;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeWorldInstance;
+import com.infernalsuite.asp.api.world.properties.SlimePropertyMap;
+import java.io.IOException;
+
+public class SerializationExample {
+    public void manualSerialization() {
+        try {
+            AdvancedSlimePaperAPI api = AdvancedSlimePaperAPI.instance();
+
+            // Get the serialization adapter (experimental API)
+            SlimeSerializationAdapter serializer = api.getSerializer();
+
+            // Get current SRF format version
+            int formatVersion = serializer.getSlimeFormat();
+            System.out.println("Current SRF version: " + formatVersion);
+
+            // Serialize a world manually
+            SlimeWorldInstance loadedWorld = api.getLoadedWorld("my_world");
+            if (loadedWorld != null) {
+                // IMPORTANT: Get a serializable copy first
+                SlimeWorld serializableCopy = loadedWorld.getSerializableCopy();
+
+                // Serialize to byte array
+                byte[] serializedData = serializer.serializeWorld(serializableCopy);
+                System.out.println("Serialized world: " + serializedData.length + " bytes");
+
+                // You can now store this data manually (e.g., database, network)
+            }
+
+            // Deserialize a world from bytes
+            byte[] worldData = loadSerializedDataFromSomewhere();
+            SlimePropertyMap properties = new SlimePropertyMap();
+
+            SlimeWorld deserializedWorld = serializer.deserializeWorld(
+                "restored_world",
+                worldData,
+                null, // No loader (temporary world)
+                properties,
+                false // Not read-only
+            );
+
+            // Load the deserialized world
+            SlimeWorldInstance instance = api.loadWorld(deserializedWorld, true);
+            System.out.println("Deserialized and loaded: " + instance.getName());
+
+        } catch (CorruptedWorldException e) {
+            System.err.println("World data corrupted: " + e.getMessage());
+        } catch (NewerFormatException e) {
+            System.err.println("SRF version too new: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("IO error: " + e.getMessage());
+        }
+    }
+
+    private byte[] loadSerializedDataFromSomewhere() {
+        // Your custom loading logic here
+        return new byte[0];
+    }
+}
+```
+
+## Complete Integration Example
+
+Full workflow for a minigame server using ASP
+
+```java
+import com.infernalsuite.asp.api.AdvancedSlimePaperAPI;
+import com.infernalsuite.asp.api.exceptions.*;
+import com.infernalsuite.asp.api.loaders.SlimeLoader;
+import com.infernalsuite.asp.api.world.SlimeWorld;
+import com.infernalsuite.asp.api.world.SlimeWorldInstance;
+import com.infernalsuite.asp.api.world.properties.SlimePropertyMap;
+import com.infernalsuite.asp.api.world.properties.SlimeProperties;
+import com.infernalsuite.asp.loaders.file.FileLoader;
+import org.bukkit.plugin.java.JavaPlugin;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+public class MinigameManager extends JavaPlugin {
+    private AdvancedSlimePaperAPI api;
+    private SlimeLoader loader;
+    private SlimeWorld arenaTemplate;
+    private Map<String, SlimeWorldInstance> activeArenas = new HashMap<>();
+
+    @Override
+    public void onEnable() {
+        try {
+            // Initialize API and loader
+            api = AdvancedSlimePaperAPI.instance();
+            loader = new FileLoader(new File(getDataFolder(), "arenas"));
+
+            // Load arena template as read-only
+            SlimePropertyMap templateProps = new SlimePropertyMap();
+            templateProps.setValue(SlimeProperties.DIFFICULTY, "normal");
+            templateProps.setValue(SlimeProperties.PVP, true);
+            templateProps.setValue(SlimeProperties.ALLOW_MONSTERS, false);
+            templateProps.setValue(SlimeProperties.SAVE_POI, false);
+
+            arenaTemplate = api.readWorld(loader, "arena_template", true, templateProps);
+            getLogger().info("Arena template loaded successfully");
+
+        } catch (Exception e) {
+            getLogger().severe("Failed to initialize: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+        }
+    }
+
+    public SlimeWorldInstance createArena(String gameId) {
+        try {
+            // Clone the template for this game instance
+            SlimeWorld arenaClone = arenaTemplate.clone("arena_" + gameId);
+
+            // Load the arena into the server
+            SlimeWorldInstance instance = api.loadWorld(arenaClone, false);
+
+            // Track the active arena
+            activeArenas.put(gameId, instance);
+
+            getLogger().info("Created arena: " + gameId);
+            return instance;
+
+        } catch (IllegalArgumentException e) {
+            getLogger().warning("Arena already exists: " + gameId);
+            return activeArenas.get(gameId);
+        }
+    }
+
+    public void cleanupArena(String gameId) {
+        SlimeWorldInstance instance = activeArenas.remove(gameId);
+        if (instance != null) {
+            // Unload the world (handled by server)
+            getServer().unloadWorld(instance.getName(), false);
+            getLogger().info("Cleaned up arena: " + gameId);
+        }
+    }
+
+    @Override
+    public void onDisable() {
+        // Clean up all active arenas
+        for (String gameId : new HashMap<>(activeArenas).keySet()) {
+            cleanupArena(gameId);
+        }
+        getLogger().info("All arenas cleaned up");
+    }
+}
+```
+
+## Summary
+
+Advanced Slime Paper provides a powerful API for dynamic world management in Minecraft servers, particularly suited for minigame servers, lobby systems, and any application requiring rapid world instantiation. The core workflow involves reading or creating worlds through SlimeLoaders, configuring properties via SlimePropertyMap, and loading them into the server as SlimeWorldInstance objects. Worlds can be cloned instantaneously for game instances, migrated between storage backends, and persisted efficiently in the SRF format. Once loaded, SlimeWorldInstance provides direct access to both the ASP world representation and the underlying Bukkit World object through getBukkitWorld().
+
+The API supports three primary storage backends: FileLoader for local disk storage, MysqlLoader for centralized database storage, and RedisLoader for distributed caching scenarios. World properties control spawn points, difficulty, mob spawning, environment type, and advanced features like POI data persistence and chunk pruning. The read-only flag enables template-based world systems where a single source world is cloned multiple times without modification, perfect for minigame arenas or instanced content. For advanced use cases, the experimental SlimeSerializationAdapter enables manual serialization and deserialization of worlds, allowing custom storage implementations beyond the standard loaders. Integration is straightforward through the singleton AdvancedSlimePaperAPI.instance() accessor, with comprehensive exception handling for world loading, corruption, and storage errors.

@@ -176,6 +176,12 @@ public interface BetterHud {
     @NotNull TextManager getTextManager();
 
     /**
+     * Gets minimap manager
+     * @return minimap manager
+     */
+    @NotNull MinimapManager getMinimapManager();
+
+    /**
      * Returns this plugin is currently on reload.
      * @return whether to this plugin is on reload
      */
