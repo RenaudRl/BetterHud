@@ -26,7 +26,7 @@ class ShaderMinimap(
     resource: GlobalResource,
     assets: File,
     override val id: String,
-    section: YamlObject
+    private val section: YamlObject
 ) : MinimapImpl, PlaceholderSource by PlaceholderSource.Impl(section) {
 
     private val encode = "minimap_$id".encodeKey(EncodeManager.EncodeNamespace.FONT)

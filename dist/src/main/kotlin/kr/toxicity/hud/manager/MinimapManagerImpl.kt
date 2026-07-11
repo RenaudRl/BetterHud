@@ -11,6 +11,7 @@ import kr.toxicity.hud.resource.GlobalResource
 import kr.toxicity.hud.util.DATA_FOLDER
 import kr.toxicity.hud.util.forEachAllYaml
 import kr.toxicity.hud.util.ifNull
+import kr.toxicity.hud.util.warn
 import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -55,7 +56,7 @@ object MinimapManagerImpl : BetterHudManager, MinimapManager {
         folder.forEachAllYaml(info.sender) { file, s, yamlObject ->
             runCatching {
                 minimapMap[s] = MinimapType.valueOf(
-                    yamlObject.getString("type", "SHADER").uppercase()
+                    yamlObject.getAsString("type", "SHADER").uppercase()
                 ).builder(resource, folder, s, yamlObject)
             }.onFailure { e ->
                 info.sender.warn("Unable to load minimap $s in ${file.name}")

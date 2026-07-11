@@ -73,6 +73,18 @@ public record HudObjectType<T extends HudObject>(
             BetterHudAPI.inst().getCompassManager()::getAllCompasses
     );
 
+    /**
+     * Minimap type
+     * @see kr.toxicity.hud.api.minimap.Minimap
+     */
+    public static final HudObjectType<kr.toxicity.hud.api.minimap.Minimap> MINIMAP = new HudObjectType<>(
+            kr.toxicity.hud.api.minimap.Minimap.class,
+            "minimap",
+            kr.toxicity.hud.api.minimap.Minimap::render,
+            BetterHudAPI.inst().getMinimapManager()::getMinimap,
+            BetterHudAPI.inst().getMinimapManager()::getAllMinimaps
+    );
+
     public HudObjectType {
         TYPE_MAP.put(name, this);
     }

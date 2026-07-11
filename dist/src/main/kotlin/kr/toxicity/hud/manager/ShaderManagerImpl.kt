@@ -131,13 +131,13 @@ object ShaderManagerImpl : BetterHudManager, ShaderManager {
             val minimap = yaml["minimap"]?.asObject()
             if (minimap?.getAsBoolean("enabled", true) == true) {
                 val texSize = minimap["tex-size"]?.asArray()
-                constants["MINIMAP_TEX_SIZE_X"] = texSize?.get(0)?.asInt()?.toString() ?: "2048"
-                constants["MINIMAP_TEX_SIZE_Y"] = texSize?.get(1)?.asInt()?.toString() ?: "2048"
+                constants["MINIMAP_TEX_SIZE_X"] = texSize?.toList()?.getOrNull(0)?.asInt()?.toString() ?: "2048"
+                constants["MINIMAP_TEX_SIZE_Y"] = texSize?.toList()?.getOrNull(1)?.asInt()?.toString() ?: "2048"
                 constants["MINIMAP_DISPLAY_SIZE"] = minimap.getAsInt("display-size", 100).toString() + "."
                 val padding = minimap["padding"]?.asArray()
-                constants["MINIMAP_PADDING_X"] = padding?.get(0)?.asInt()?.toString()?.plus(".") ?: "20."
-                constants["MINIMAP_PADDING_Y"] = padding?.get(1)?.asInt()?.toString()?.plus(".") ?: "20."
-                val alignStr = minimap.getString("align", "TOP_LEFT").uppercase()
+                constants["MINIMAP_PADDING_X"] = padding?.toList()?.getOrNull(0)?.asInt()?.toString()?.plus(".") ?: "20."
+                constants["MINIMAP_PADDING_Y"] = padding?.toList()?.getOrNull(1)?.asInt()?.toString()?.plus(".") ?: "20."
+                val alignStr = minimap.getAsString("align", "TOP_LEFT").uppercase()
                 val (alignX, alignY) = when (alignStr) {
                     "TOP_RIGHT" -> "RIGHT" to "TOP"
                     "BOTTOM_LEFT" -> "LEFT" to "BOTTOM"

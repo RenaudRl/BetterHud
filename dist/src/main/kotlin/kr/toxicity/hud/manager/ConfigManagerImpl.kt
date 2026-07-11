@@ -34,6 +34,8 @@ object ConfigManagerImpl : BetterHudManager, ConfigManager {
         private set
     var defaultPopup = emptyList<String>()
         private set
+    var defaultMinimap = emptyList<String>()
+        private set
     var defaultCompass = emptyList<String>()
         private set
     var versionCheck = true
@@ -137,6 +139,9 @@ object ConfigManagerImpl : BetterHudManager, ConfigManager {
                 it.asString()
             } ?: emptyList()
             defaultCompass = yaml["default-compass"]?.asArray()?.map {
+                it.asString()
+            } ?: emptyList()
+            defaultMinimap = yaml["default-minimap"]?.asArray()?.map {
                 it.asString()
             } ?: emptyList()
             yaml["default-font-name"]?.asString()?.let {
