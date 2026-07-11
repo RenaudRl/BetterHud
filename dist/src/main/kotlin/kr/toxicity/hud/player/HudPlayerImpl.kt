@@ -21,6 +21,9 @@ abstract class HudPlayerImpl : HudPlayer {
     private val componentMap = ConcurrentHashMap<HudObject.Identifier, HudComponentSupplier<*>>()
 
     private var tick = 0L
+    // BTC-CORE: MSPT-aware backoff — number of upcoming update() ticks to skip while the
+    // server is under load (see BtcMsptBackoff). Stays 0 on non-BTC-CORE servers → vanilla behaviour.
+    private var btcMsptBackoffSkip = 0
     private var last: WidthComponent = EMPTY_WIDTH_COMPONENT
     private var additionalComp: WidthComponent? = null
     private val variable = ConcurrentHashMap<String, String>()
@@ -99,6 +102,13 @@ abstract class HudPlayerImpl : HudPlayer {
 
     @Synchronized
     final override fun update() {
+        // BTC-CORE: under elevated server MSPT, defer this HUD recompute/resend to avoid amplifying lag.
+        // BtcMsptBackoff.skipTicks() returns 0 when BTC-CORE is absent, preserving vanilla behaviour.
+        if (btcMsptBackoffSkip > 0) {
+            btcMsptBackoffSkip--
+            return
+        }
+        BtcMsptBackoff.skipTicks().let { if (it > 0) btcMsptBackoffSkip = it }
         updatePlaceholder()
         tick++
         val compList = ArrayList<WidthComponent>()
